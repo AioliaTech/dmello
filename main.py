@@ -8,7 +8,6 @@ import json, os
 
 app = FastAPI()
 
-# (Seu mapeamento de categorias permanece igual)
 MAPEAMENTO_CATEGORIAS = { 
     # ... seu grande dicionário ...
 }
@@ -41,47 +40,6 @@ def converter_km(valor_str):
 def get_price_for_sort(price_val):
     converted = converter_preco(price_val)
     return converted if converted is not None else float('-inf')
-
-def calcular_score_proximidade(v, params):
-    score = 0
-    score_max = 0
-
-    # Score AnoMax
-    ano_max = params.get("AnoMax")
-    ano_veic = converter_ano(v.get("ano"))
-    if ano_max and ano_veic:
-        ano_max = int(ano_max)
-        if (ano_max - 2) <= ano_veic <= (ano_max + 2):
-            # Pontuação máxima se igual, decai até -2 ou +2
-            score += 10 - abs(ano_veic - ano_max) * 2.5  # Score: 10 (igual), 7.5 (1 ano dif.), 5 (2 anos dif.)
-        score_max += 10
-
-    # Score KmMax
-    km_max = params.get("KmMax")
-    km_veic = converter_km(v.get("km"))
-    if km_max and km_veic is not None:
-        km_max = int(km_max)
-        margem = 18000
-        if km_veic <= km_max + margem:
-            diff = abs(km_veic - km_max)
-            # Score decai conforme diferença, zera se ultrapassa margem
-            score += max(0, 10 - (diff / margem) * 10)
-        score_max += 10
-
-    # Score ValorMax
-    valor_max = params.get("ValorMax")
-    preco_veic = converter_preco(v.get("preco"))
-    if valor_max and preco_veic:
-        valor_max = float(valor_max)
-        limite = valor_max * 1.2
-        if preco_veic <= limite:
-            diff = abs(preco_veic - valor_max)
-            # Score decai até o teto de 20%
-            score += max(0, 10 - (diff / (limite - valor_max)) * 10)
-        score_max += 10
-
-    # Retorna score proporcional ao total de pontos possíveis (pode ser 0~30 ou 0~20)
-    return round(score, 2)
 
 def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     campos_fuzzy = ["modelo", "titulo", "cor", "opcionais"]
@@ -143,7 +101,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         vehicles_processados = veiculos_que_passaram_nesta_chave
         if not vehicles_processados:
             break
-    # Aplica filtros de valor, ano, km
+    # Filtro de AnoMax
     if anomax:
         try:
             anomax_int = int(anomax)
@@ -152,13 +110,15 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
             vehicles_processados = [v for v in vehicles_processados if v.get("ano") and ano_min <= converter_ano(v.get("ano")) <= ano_max]
         except Exception:
             vehicles_processados = []
+    # Filtro de KmMax com margem de 15.000
     if kmmax:
         try:
             kmmax_int = int(kmmax)
-            km_limite = kmmax_int + 30000
+            km_limite = kmmax_int + 15000
             vehicles_processados = [v for v in vehicles_processados if v.get("km") and converter_km(v.get("km")) <= km_limite]
         except Exception:
             vehicles_processados = []
+    # Filtro de ValorMax
     if valormax:
         try:
             teto = float(valormax)
@@ -168,7 +128,25 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
             vehicles_processados = []
     if active_fuzzy_filter_applied:
         vehicles_processados = [v for v in vehicles_processados if v['_matched_word_count'] > 0]
-    if active_fuzzy_filter_applied:
+    # Ordenação pós-filtro
+    if kmmax:
+        vehicles_processados.sort(key=lambda v: converter_km(v.get("km")) if v.get("km") else float('inf'))
+    elif valormax and anomax:
+        vehicles_processados.sort(
+            key=lambda v: (
+                abs(converter_preco(v.get("preco")) - float(valormax)) +
+                abs(converter_ano(v.get("ano")) - int(anomax)) if v.get("preco") and v.get("ano") else float('inf')
+            )
+        )
+    elif valormax:
+        vehicles_processados.sort(
+            key=lambda v: abs(converter_preco(v.get("preco")) - float(valormax)) if v.get("preco") else float('inf')
+        )
+    elif anomax:
+        vehicles_processados.sort(
+            key=lambda v: abs(converter_ano(v.get("ano")) - int(anomax)) if v.get("ano") else float('inf')
+        )
+    elif active_fuzzy_filter_applied:
         vehicles_processados.sort(
             key=lambda v: (
                 v['_matched_word_count'],
@@ -231,17 +209,6 @@ def get_data(request: Request):
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
 
-    # Calcula o score de proximidade para cada veículo retornado
-    params_score = {}
-    if valormax:
-        params_score["ValorMax"] = float(valormax)
-    if anomax:
-        params_score["AnoMax"] = int(anomax)
-    if kmmax:
-        params_score["KmMax"] = int(kmmax)
-    for v in resultado:
-        v["score_proximidade"] = calcular_score_proximidade(v, params_score)
-
     # PROCESSA FOTOS SE SIMPLES=1
     if simples == "1":
         for v in resultado:
@@ -251,9 +218,6 @@ def get_data(request: Request):
             v.pop("opcionais", None)
 
     if resultado:
-        # Ordena pelo score de proximidade (maior para menor) se houver
-        if any("score_proximidade" in v for v in resultado):
-            resultado.sort(key=lambda x: x.get("score_proximidade", 0), reverse=True)
         return JSONResponse(content={
             "resultados": resultado,
             "total_encontrado": len(resultado)
@@ -261,8 +225,6 @@ def get_data(request: Request):
 
     # (Fallbacks alternativos - mantidos do seu código original)
     # ... (mantém a lógica de alternativas por modelo/categoria/cilindrada/valor acima)
-
-    # Fallbacks podem ser incrementados conforme sua lógica original ou evoluir para o sistema progressivo que você quer
 
     return JSONResponse(content={
         "resultados": [],
