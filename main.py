@@ -158,27 +158,28 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         )
     return vehicles_processados
 
-def fallback_removendo_primeiro_filtro_menos_importante(vehicles, filtros, valormax, anomax, kmmax, prioridade):
-    """
-    Remove sempre o filtro ativo menos importante conforme a ordem de prioridade, e tenta a busca novamente.
-    """
+def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
     filtros_base = dict(filtros)
     removidos = []
-    ativos = [k for k in prioridade if k in filtros_base and filtros_base[k]]
-    if len(ativos) < 2:
-        return [], []
-    for filtro_a_remover in reversed(prioridade):
-        if filtro_a_remover in filtros_base and filtros_base[filtro_a_remover]:
-            filtros_base_temp = {k: v for k, v in filtros_base.items()}
-            filtros_base_temp.pop(filtro_a_remover)
-            valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
-            anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
-            kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
-            resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
-            if resultado:
-                removidos.append(filtro_a_remover)
-                return resultado, removidos
-            removidos.append(filtro_a_remover)
+    while len(filtros_base) > 1:
+        # Encontra o filtro ativo menos importante
+        filtro_a_remover = None
+        for chave in reversed(prioridade):
+            if chave in filtros_base and filtros_base[chave]:
+                filtro_a_remover = chave
+                break
+        if not filtro_a_remover:
+            break  # Nenhum filtro removível encontrado
+        filtros_base_temp = {k: v for k, v in filtros_base.items()}
+        filtros_base_temp.pop(filtro_a_remover)
+        valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
+        anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
+        kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
+        resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
+        removidos.append(filtro_a_remover)
+        if resultado:
+            return resultado, removidos
+        filtros_base = filtros_base_temp
     return [], removidos
 
 @app.on_event("startup")
@@ -261,9 +262,9 @@ def get_data(request: Request):
                 }
                 break
 
-    # Novo fallback: remove sempre o filtro ativo menos importante
+    # Fallback progressivo
     if not resultado and len(filtros_ativos) > 1:
-        resultado_fallback, filtros_removidos = fallback_removendo_primeiro_filtro_menos_importante(
+        resultado_fallback, filtros_removidos = fallback_progressivo(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
         )
         if ids_excluir:
