@@ -41,6 +41,10 @@ def get_price_for_sort(price_val):
     converted = converter_preco(price_val)
     return converted if converted is not None else float('-inf')
 
+def split_multi(valor):
+    # Divide por vírgula, remove espaços e ignora vazios
+    return [v.strip() for v in str(valor).split(',') if v.strip()]
+
 def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     campos_fuzzy = ["modelo", "titulo", "cor", "opcionais"]
     vehicles_processados = list(vehicles)
@@ -51,11 +55,14 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     for chave_filtro, valor_filtro in filtros.items():
         if not valor_filtro:
             continue
+        valores = split_multi(valor_filtro)
         veiculos_que_passaram_nesta_chave = []
         if chave_filtro in campos_fuzzy:
             active_fuzzy_filter_applied = True
-            palavras_query_originais = valor_filtro.split()
-            palavras_query_normalizadas = [normalizar(p) for p in palavras_query_originais if p.strip()]
+            # Fuzzy para qualquer termo da lista
+            palavras_query_normalizadas = []
+            for val in valores:
+                palavras_query_normalizadas += [normalizar(p) for p in val.split() if p.strip()]
             palavras_query_normalizadas = [p for p in palavras_query_normalizadas if p]
             if not palavras_query_normalizadas:
                 vehicles_processados = []
@@ -93,10 +100,11 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                     v['_matched_word_count'] += vehicle_matched_words_for_this_filter
                     veiculos_que_passaram_nesta_chave.append(v)
         else:
-            termo_normalizado_para_comparacao = normalizar(valor_filtro)
+            # Filtros exatos aceitam múltiplos valores (OR)
+            valores_normalizados = [normalizar(v) for v in valores]
             for v in vehicles_processados:
-                valor_campo_veiculo = v.get(chave_filtro, "")
-                if normalizar(str(valor_campo_veiculo)) == termo_normalizado_para_comparacao:
+                valor_campo_veiculo = normalizar(str(v.get(chave_filtro, "")))
+                if valor_campo_veiculo in valores_normalizados:
                     veiculos_que_passaram_nesta_chave.append(v)
         vehicles_processados = veiculos_que_passaram_nesta_chave
         if not vehicles_processados:
@@ -192,6 +200,7 @@ def get_data(request: Request):
     anomax = query_params.pop("AnoMax", None)
     kmmax = query_params.pop("KmMax", None)
     simples = query_params.pop("simples", None)
+    excluir = query_params.pop("excluir", None)
     filtros_originais = {
         "id": query_params.get("id"),
         "tipo": query_params.get("tipo"),
@@ -208,6 +217,13 @@ def get_data(request: Request):
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
+
+    # EXCLUI IDs se solicitado
+    ids_excluir = set()
+    if excluir:
+        ids_excluir = set(e.strip() for e in excluir.split(",") if e.strip())
+    if ids_excluir:
+        resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
 
     # PROCESSA FOTOS SE SIMPLES=1
     if simples == "1":
