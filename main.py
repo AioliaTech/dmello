@@ -196,3 +196,122 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
         resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
         removidos.append(filtro_a_remover)
         if resultado:
+            return resultado, removidos
+        filtros_base = filtros_base_temp
+    return [], removidos
+
+@app.on_event("startup")
+def agendar_tarefas():
+    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
+    scheduler.add_job(fetch_and_convert_xml, "cron", hour="0,12")
+    scheduler.start()
+    fetch_and_convert_xml()
+
+@app.get("/api/data")
+def get_data(request: Request):
+    if not os.path.exists("data.json"):
+        return JSONResponse(content={"error": "Nenhum dado disponível", "resultados": [], "total_encontrado": 0}, status_code=404)
+    try:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        return JSONResponse(content={"error": "Erro ao ler os dados (JSON inválido)", "resultados": [], "total_encontrado": 0}, status_code=500)
+    try:
+        vehicles = data["veiculos"]
+        if not isinstance(vehicles, list):
+            return JSONResponse(content={"error": "Formato de dados inválido (veiculos não é uma lista)", "resultados": [], "total_encontrado": 0}, status_code=500)
+    except KeyError:
+        return JSONResponse(content={"error": "Formato de dados inválido (chave 'veiculos' não encontrada)", "resultados": [], "total_encontrado": 0}, status_code=500)
+    query_params = dict(request.query_params)
+    valormax = query_params.pop("ValorMax", None)
+    anomax = query_params.pop("AnoMax", None)
+    kmmax = query_params.pop("KmMax", None)
+    simples = query_params.pop("simples", None)
+    excluir = query_params.pop("excluir", None)
+    filtros_originais = {
+        "id": query_params.get("id"),
+        "tipo": query_params.get("tipo"),
+        "modelo": query_params.get("modelo"),
+        "categoria": query_params.get("categoria"),
+        "ValorMax": valormax,
+        "cambio": query_params.get("cambio"),
+        "AnoMax": anomax,
+        "opcionais": query_params.get("opcionais"),
+        "KmMax": kmmax,
+        "marca": query_params.get("marca"),
+        "cor": query_params.get("cor"),
+        "combustivel": query_params.get("combustivel")
+    }
+    filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
+    # Remove "ValorMax" dos filtros ativos para tentativas de expansão
+    filtros_ativos_sem_valormax = dict(filtros_ativos)
+    filtros_ativos_sem_valormax.pop("ValorMax", None)
+    resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
+
+    # EXCLUI IDs se solicitado
+    ids_excluir = set()
+    if excluir:
+        ids_excluir = set(e.strip() for e in excluir.split(",") if e.strip())
+    if ids_excluir:
+        resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
+
+    fallback_info = {}
+
+    # Tentativas de expandir o ValorMax em +12k até 3x
+    if not resultado and valormax and len(filtros_ativos) > 1:
+        for i in range(1, 4):
+            novo_valormax = float(valormax) + (12000 * i)
+            resultado_temp = filtrar_veiculos(
+                vehicles,
+                filtros_ativos_sem_valormax,
+                valormax=novo_valormax,
+                anomax=anomax,
+                kmmax=kmmax
+            )
+            if ids_excluir:
+                resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
+            if resultado_temp:
+                resultado = resultado_temp
+                fallback_info = {
+                    "tentativa_valormax": {
+                        "valores_testados": [float(valormax) + 12000 * j for j in range(1, i+1)],
+                        "valor_usado": novo_valormax
+                    }
+                }
+                break
+
+    # Fallback progressivo
+    if not resultado and len(filtros_ativos) > 1:
+        resultado_fallback, filtros_removidos = fallback_progressivo(
+            vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
+        )
+        if ids_excluir:
+            resultado_fallback = [v for v in resultado_fallback if str(v.get("id")) not in ids_excluir]
+        if resultado_fallback:
+            resultado = resultado_fallback
+            fallback_info = {
+                **fallback_info,
+                "fallback": {"removidos": filtros_removidos}
+            }
+
+    if simples == "1":
+        for v in resultado:
+            fotos = v.get("fotos")
+            if isinstance(fotos, list):
+                v["fotos"] = fotos[:1] if fotos else []
+            v.pop("opcionais", None)
+
+    if resultado:
+        resposta = {
+            "resultados": resultado,
+            "total_encontrado": len(resultado)
+        }
+        if fallback_info:
+            resposta.update(fallback_info)
+        return JSONResponse(content=resposta)
+
+    return JSONResponse(content={
+        "resultados": [],
+        "total_encontrado": 0,
+        "instrucao_ia": "Não encontramos veículos com os parâmetros informados e também não encontramos opções próximas."
+    })
