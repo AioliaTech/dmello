@@ -183,25 +183,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         v.pop('_matched_word_count', None)
     return vehicles_processados
 
-def tentativas_valormax_incremental(vehicles, filtros, valormax, anomax, kmmax, tentativas=3, incremento=12000):
-    """Tenta buscar aumentando o ValorMax até tentativas vezes."""
-    resultados = []
-    valormax_atual = float(valormax)
-    for i in range(1, tentativas+1):
-        novo_valormax = valormax_atual + (incremento * i)
-        resultados = filtrar_veiculos(
-            vehicles,
-            filtros,
-            valormax=novo_valormax,
-            anomax=anomax,
-            kmmax=kmmax
-        )
-        if resultados:
-            return resultados, novo_valormax
-    return [], None
-
 def fallback_removendo_campos(vehicles, filtros, valormax, anomax, kmmax, prioridade):
-    """Tenta buscar removendo um filtro por vez (do menos para o mais importante)."""
     filtros_base = dict(filtros)
     removidos = []
     chaves = [k for k in prioridade if k in filtros_base and filtros_base[k]]
@@ -264,6 +246,9 @@ def get_data(request: Request):
         "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
+    # Remove "ValorMax" dos filtros ativos para evitar filtro duplo
+    filtros_ativos_sem_valormax = dict(filtros_ativos)
+    filtros_ativos_sem_valormax.pop("ValorMax", None)
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
 
     # EXCLUI IDs se solicitado
@@ -280,7 +265,13 @@ def get_data(request: Request):
         # Tentativas de expandir o ValorMax em +12k até 3x
         for i in range(1, 4):
             novo_valormax = float(valormax) + (12000 * i)
-            resultado_temp = filtrar_veiculos(vehicles, filtros_ativos, valormax=novo_valormax, anomax=anomax, kmmax=kmmax)
+            resultado_temp = filtrar_veiculos(
+                vehicles,
+                filtros_ativos_sem_valormax,  # <-- sem filtro duplo!
+                valormax=novo_valormax,
+                anomax=anomax,
+                kmmax=kmmax
+            )
             if ids_excluir:
                 resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
             if resultado_temp:
