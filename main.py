@@ -100,7 +100,6 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                     break
             vehicles_processados = [v for v in vehicles_processados if id(v) in veiculos_que_passaram_nesta_chave]
         else:
-            # Filtros exatos aceitam múltiplos valores (OR)
             valores_normalizados = [normalizar(v) for v in valores]
             vehicles_processados = [
                 v for v in vehicles_processados
@@ -159,24 +158,27 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         )
     return vehicles_processados
 
-def fallback_removendo_campos(vehicles, filtros, valormax, anomax, kmmax, prioridade):
+def fallback_removendo_primeiro_filtro_menos_importante(vehicles, filtros, valormax, anomax, kmmax, prioridade):
+    """
+    Remove sempre o filtro ativo menos importante conforme a ordem de prioridade, e tenta a busca novamente.
+    """
     filtros_base = dict(filtros)
     removidos = []
-    chaves = [k for k in prioridade if k in filtros_base and filtros_base[k]]
-    if len(chaves) < 2:
+    ativos = [k for k in prioridade if k in filtros_base and filtros_base[k]]
+    if len(ativos) < 2:
         return [], []
-    for i in range(len(chaves)-1, -1, -1):
-        filtro_a_remover = chaves[i]
-        filtros_base_temp = {k: v for k, v in filtros_base.items()}
-        filtros_base_temp.pop(filtro_a_remover)
-        valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
-        anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
-        kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
-        resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
-        if resultado:
+    for filtro_a_remover in reversed(prioridade):
+        if filtro_a_remover in filtros_base and filtros_base[filtro_a_remover]:
+            filtros_base_temp = {k: v for k, v in filtros_base.items()}
+            filtros_base_temp.pop(filtro_a_remover)
+            valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
+            anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
+            kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
+            resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
+            if resultado:
+                removidos.append(filtro_a_remover)
+                return resultado, removidos
             removidos.append(filtro_a_remover)
-            return resultado, removidos
-        removidos.append(filtro_a_remover)
     return [], removidos
 
 @app.on_event("startup")
@@ -234,9 +236,9 @@ def get_data(request: Request):
     if ids_excluir:
         resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
 
-    tentativas_valormax_usadas = []
     fallback_info = {}
 
+    # Tentativas de expandir o ValorMax em +12k até 3x
     if not resultado and valormax and len(filtros_ativos) > 1:
         for i in range(1, 4):
             novo_valormax = float(valormax) + (12000 * i)
@@ -251,7 +253,6 @@ def get_data(request: Request):
                 resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
             if resultado_temp:
                 resultado = resultado_temp
-                tentativas_valormax_usadas.append(novo_valormax)
                 fallback_info = {
                     "tentativa_valormax": {
                         "valores_testados": [float(valormax) + 12000 * j for j in range(1, i+1)],
@@ -260,8 +261,9 @@ def get_data(request: Request):
                 }
                 break
 
+    # Novo fallback: remove sempre o filtro ativo menos importante
     if not resultado and len(filtros_ativos) > 1:
-        resultado_fallback, filtros_removidos = fallback_removendo_campos(
+        resultado_fallback, filtros_removidos = fallback_removendo_primeiro_filtro_menos_importante(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
         )
         if ids_excluir:
