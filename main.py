@@ -61,7 +61,7 @@ def calcular_score_proximidade(v, params):
     km_veic = converter_km(v.get("km"))
     if km_max and km_veic is not None:
         km_max = int(km_max)
-        margem = 30000
+        margem = 18000
         if km_veic <= km_max + margem:
             diff = abs(km_veic - km_max)
             # Score decai conforme diferença, zera se ultrapassa margem
