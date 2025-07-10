@@ -8,9 +8,22 @@ import json, os
 
 app = FastAPI()
 
-MAPEAMENTO_CATEGORIAS = { 
-    # ... seu grande dicionário ...
+MAPEAMENTO_CATEGORIAS = {
+    # ... seu dicionário ...
 }
+
+FALLBACK_PRIORIDADE = [
+    "modelo",
+    "categoria",
+    "ValorMax",
+    "cambio",
+    "AnoMax",
+    "opcionais",
+    "KmMax",
+    "marca",
+    "cor",
+    "combustivel"
+]
 
 def inferir_categoria_por_modelo(modelo_buscado):
     modelo_norm = normalizar(modelo_buscado)
@@ -42,7 +55,6 @@ def get_price_for_sort(price_val):
     return converted if converted is not None else float('-inf')
 
 def split_multi(valor):
-    # Divide por vírgula, remove espaços e ignora vazios
     return [v.strip() for v in str(valor).split(',') if v.strip()]
 
 def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
@@ -59,7 +71,6 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         veiculos_que_passaram_nesta_chave = []
         if chave_filtro in campos_fuzzy:
             active_fuzzy_filter_applied = True
-            # Fuzzy para qualquer termo da lista
             palavras_query_normalizadas = []
             for val in valores:
                 palavras_query_normalizadas += [normalizar(p) for p in val.split() if p.strip()]
@@ -100,7 +111,6 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                     v['_matched_word_count'] += vehicle_matched_words_for_this_filter
                     veiculos_que_passaram_nesta_chave.append(v)
         else:
-            # Filtros exatos aceitam múltiplos valores (OR)
             valores_normalizados = [normalizar(v) for v in valores]
             for v in vehicles_processados:
                 valor_campo_veiculo = normalizar(str(v.get(chave_filtro, "")))
@@ -173,6 +183,44 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         v.pop('_matched_word_count', None)
     return vehicles_processados
 
+def tentativas_valormax_incremental(vehicles, filtros, valormax, anomax, kmmax, tentativas=3, incremento=12000):
+    """Tenta buscar aumentando o ValorMax até tentativas vezes."""
+    resultados = []
+    valormax_atual = float(valormax)
+    for i in range(1, tentativas+1):
+        novo_valormax = valormax_atual + (incremento * i)
+        resultados = filtrar_veiculos(
+            vehicles,
+            filtros,
+            valormax=novo_valormax,
+            anomax=anomax,
+            kmmax=kmmax
+        )
+        if resultados:
+            return resultados, novo_valormax
+    return [], None
+
+def fallback_removendo_campos(vehicles, filtros, valormax, anomax, kmmax, prioridade):
+    """Tenta buscar removendo um filtro por vez (do menos para o mais importante)."""
+    filtros_base = dict(filtros)
+    removidos = []
+    chaves = [k for k in prioridade if k in filtros_base and filtros_base[k]]
+    if len(chaves) < 2:
+        return [], []
+    for i in range(len(chaves)-1, -1, -1):
+        filtro_a_remover = chaves[i]
+        filtros_base_temp = {k: v for k, v in filtros_base.items()}
+        filtros_base_temp.pop(filtro_a_remover)
+        valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
+        anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
+        kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
+        resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
+        if resultado:
+            removidos.append(filtro_a_remover)
+            return resultado, removidos
+        removidos.append(filtro_a_remover)
+    return [], removidos
+
 @app.on_event("startup")
 def agendar_tarefas():
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
@@ -205,15 +253,15 @@ def get_data(request: Request):
         "id": query_params.get("id"),
         "tipo": query_params.get("tipo"),
         "modelo": query_params.get("modelo"),
-        "marca": query_params.get("marca"),
-        "cilindrada": query_params.get("cilindrada"),
         "categoria": query_params.get("categoria"),
-        "motor": query_params.get("motor"),
+        "ValorMax": valormax,
+        "cambio": query_params.get("cambio"),
+        "AnoMax": anomax,
         "opcionais": query_params.get("opcionais"),
+        "KmMax": kmmax,
+        "marca": query_params.get("marca"),
         "cor": query_params.get("cor"),
-        "combustivel": query_params.get("combustivel"),
-        "ano": query_params.get("ano"),
-        "km": query_params.get("km")
+        "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
@@ -225,6 +273,41 @@ def get_data(request: Request):
     if ids_excluir:
         resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
 
+    tentativas_valormax_usadas = []
+    fallback_info = {}
+
+    if not resultado and valormax and len(filtros_ativos) > 1:
+        # Tentativas de expandir o ValorMax em +12k até 3x
+        for i in range(1, 4):
+            novo_valormax = float(valormax) + (12000 * i)
+            resultado_temp = filtrar_veiculos(vehicles, filtros_ativos, valormax=novo_valormax, anomax=anomax, kmmax=kmmax)
+            if ids_excluir:
+                resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
+            if resultado_temp:
+                resultado = resultado_temp
+                tentativas_valormax_usadas.append(novo_valormax)
+                fallback_info = {
+                    "tentativa_valormax": {
+                        "valores_testados": [float(valormax) + 12000 * j for j in range(1, i+1)],
+                        "valor_usado": novo_valormax
+                    }
+                }
+                break
+
+    # Fallback progressivo removendo filtros (caso ainda não tenha encontrado nada)
+    if not resultado and len(filtros_ativos) > 1:
+        resultado_fallback, filtros_removidos = fallback_removendo_campos(
+            vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
+        )
+        if ids_excluir:
+            resultado_fallback = [v for v in resultado_fallback if str(v.get("id")) not in ids_excluir]
+        if resultado_fallback:
+            resultado = resultado_fallback
+            fallback_info = {
+                **fallback_info,
+                "fallback": {"removidos": filtros_removidos}
+            }
+
     # PROCESSA FOTOS SE SIMPLES=1
     if simples == "1":
         for v in resultado:
@@ -234,13 +317,13 @@ def get_data(request: Request):
             v.pop("opcionais", None)
 
     if resultado:
-        return JSONResponse(content={
+        resposta = {
             "resultados": resultado,
             "total_encontrado": len(resultado)
-        })
-
-    # (Fallbacks alternativos - mantidos do seu código original)
-    # ... (mantém a lógica de alternativas por modelo/categoria/cilindrada/valor acima)
+        }
+        if fallback_info:
+            resposta.update(fallback_info)
+        return JSONResponse(content=resposta)
 
     return JSONResponse(content={
         "resultados": [],
