@@ -60,17 +60,12 @@ def split_multi(valor):
 def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     campos_fuzzy = ["modelo", "titulo", "cor", "opcionais"]
     vehicles_processados = list(vehicles)
-    for v in vehicles_processados:
-        v['_relevance_score'] = 0.0
-        v['_matched_word_count'] = 0
-    active_fuzzy_filter_applied = False
     for chave_filtro, valor_filtro in filtros.items():
         if not valor_filtro:
             continue
         valores = split_multi(valor_filtro)
         veiculos_que_passaram_nesta_chave = []
         if chave_filtro in campos_fuzzy:
-            active_fuzzy_filter_applied = True
             palavras_query_normalizadas = []
             for val in valores:
                 palavras_query_normalizadas += [normalizar(p) for p in val.split() if p.strip()]
@@ -79,12 +74,9 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                 vehicles_processados = []
                 break
             for v in vehicles_processados:
-                vehicle_score_for_this_filter = 0.0
-                vehicle_matched_words_for_this_filter = 0
                 for palavra_q_norm in palavras_query_normalizadas:
                     if not palavra_q_norm:
                         continue
-                    best_score_for_this_q_word_in_vehicle = 0.0
                     for nome_campo_fuzzy_veiculo in campos_fuzzy:
                         conteudo_original_campo_veiculo = v.get(nome_campo_fuzzy_veiculo, "")
                         if not conteudo_original_campo_veiculo:
@@ -92,25 +84,22 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                         texto_normalizado_campo_veiculo = normalizar(str(conteudo_original_campo_veiculo))
                         if not texto_normalizado_campo_veiculo:
                             continue
-                        current_field_match_score = 0.0
+                        # Fuzzy match
                         if palavra_q_norm in texto_normalizado_campo_veiculo:
-                            current_field_match_score = 100.0
+                            veiculos_que_passaram_nesta_chave.append(v)
+                            break
                         elif len(palavra_q_norm) >= 4:
                             score_partial = fuzz.partial_ratio(texto_normalizado_campo_veiculo, palavra_q_norm)
                             score_ratio = fuzz.ratio(texto_normalizado_campo_veiculo, palavra_q_norm)
                             achieved_score = max(score_partial, score_ratio)
                             if achieved_score >= 85:
-                                current_field_match_score = achieved_score
-                        if current_field_match_score > best_score_for_this_q_word_in_vehicle:
-                            best_score_for_this_q_word_in_vehicle = current_field_match_score
-                    if best_score_for_this_q_word_in_vehicle > 0:
-                        vehicle_score_for_this_filter += best_score_for_this_q_word_in_vehicle
-                        vehicle_matched_words_for_this_filter += 1
-                if vehicle_matched_words_for_this_filter > 0:
-                    v['_relevance_score'] += vehicle_score_for_this_filter
-                    v['_matched_word_count'] += vehicle_matched_words_for_this_filter
-                    veiculos_que_passaram_nesta_chave.append(v)
+                                veiculos_que_passaram_nesta_chave.append(v)
+                                break
+                    else:
+                        continue
+                    break
         else:
+            # Filtros exatos aceitam múltiplos valores (OR)
             valores_normalizados = [normalizar(v) for v in valores]
             for v in vehicles_processados:
                 valor_campo_veiculo = normalizar(str(v.get(chave_filtro, "")))
@@ -140,12 +129,10 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     if valormax:
         try:
             teto = float(valormax)
-            max_price_limit = teto * 0.5
+            max_price_limit = teto * 1.2
             vehicles_processados = [v for v in vehicles_processados if converter_preco(v.get("preco")) is not None and converter_preco(v.get("preco")) <= max_price_limit]
         except ValueError:
             vehicles_processados = []
-    if active_fuzzy_filter_applied:
-        vehicles_processados = [v for v in vehicles_processados if v['_matched_word_count'] > 0]
     # Ordenação pós-filtro
     if kmmax:
         vehicles_processados.sort(key=lambda v: converter_km(v.get("km")) if v.get("km") else float('inf'))
@@ -164,23 +151,11 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         vehicles_processados.sort(
             key=lambda v: abs(converter_ano(v.get("ano")) - int(anomax)) if v.get("ano") else float('inf')
         )
-    elif active_fuzzy_filter_applied:
-        vehicles_processados.sort(
-            key=lambda v: (
-                v['_matched_word_count'],
-                v['_relevance_score'],
-                get_price_for_sort(v.get("preco"))
-            ),
-            reverse=True
-        )
     else:
         vehicles_processados.sort(
             key=lambda v: get_price_for_sort(v.get("preco")),
             reverse=True
         )
-    for v in vehicles_processados:
-        v.pop('_relevance_score', None)
-        v.pop('_matched_word_count', None)
     return vehicles_processados
 
 def fallback_removendo_campos(vehicles, filtros, valormax, anomax, kmmax, prioridade):
@@ -246,7 +221,7 @@ def get_data(request: Request):
         "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
-    # Remove "ValorMax" dos filtros ativos para evitar filtro duplo
+    # Remove "ValorMax" dos filtros ativos para tentativas de expansão
     filtros_ativos_sem_valormax = dict(filtros_ativos)
     filtros_ativos_sem_valormax.pop("ValorMax", None)
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
@@ -262,12 +237,11 @@ def get_data(request: Request):
     fallback_info = {}
 
     if not resultado and valormax and len(filtros_ativos) > 1:
-        # Tentativas de expandir o ValorMax em +12k até 3x
         for i in range(1, 4):
             novo_valormax = float(valormax) + (12000 * i)
             resultado_temp = filtrar_veiculos(
                 vehicles,
-                filtros_ativos_sem_valormax,  # <-- sem filtro duplo!
+                filtros_ativos_sem_valormax,
                 valormax=novo_valormax,
                 anomax=anomax,
                 kmmax=kmmax
@@ -285,7 +259,6 @@ def get_data(request: Request):
                 }
                 break
 
-    # Fallback progressivo removendo filtros (caso ainda não tenha encontrado nada)
     if not resultado and len(filtros_ativos) > 1:
         resultado_fallback, filtros_removidos = fallback_removendo_campos(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
@@ -299,7 +272,6 @@ def get_data(request: Request):
                 "fallback": {"removidos": filtros_removidos}
             }
 
-    # PROCESSA FOTOS SE SIMPLES=1
     if simples == "1":
         for v in resultado:
             fotos = v.get("fotos")
