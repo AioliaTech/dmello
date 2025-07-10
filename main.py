@@ -60,19 +60,19 @@ def split_multi(valor):
 def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     campos_fuzzy = ["modelo", "titulo", "cor", "opcionais"]
     vehicles_processados = list(vehicles)
+
     for chave_filtro, valor_filtro in filtros.items():
         if not valor_filtro:
             continue
         valores = split_multi(valor_filtro)
-        veiculos_que_passaram_nesta_chave = []
+        veiculos_que_passaram_nesta_chave = set()
         if chave_filtro in campos_fuzzy:
             palavras_query_normalizadas = []
             for val in valores:
                 palavras_query_normalizadas += [normalizar(p) for p in val.split() if p.strip()]
             palavras_query_normalizadas = [p for p in palavras_query_normalizadas if p]
             if not palavras_query_normalizadas:
-                vehicles_processados = []
-                break
+                continue
             for v in vehicles_processados:
                 for palavra_q_norm in palavras_query_normalizadas:
                     if not palavra_q_norm:
@@ -86,28 +86,29 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                             continue
                         # Fuzzy match
                         if palavra_q_norm in texto_normalizado_campo_veiculo:
-                            veiculos_que_passaram_nesta_chave.append(v)
+                            veiculos_que_passaram_nesta_chave.add(id(v))
                             break
                         elif len(palavra_q_norm) >= 4:
                             score_partial = fuzz.partial_ratio(texto_normalizado_campo_veiculo, palavra_q_norm)
                             score_ratio = fuzz.ratio(texto_normalizado_campo_veiculo, palavra_q_norm)
                             achieved_score = max(score_partial, score_ratio)
                             if achieved_score >= 85:
-                                veiculos_que_passaram_nesta_chave.append(v)
+                                veiculos_que_passaram_nesta_chave.add(id(v))
                                 break
                     else:
                         continue
                     break
+            vehicles_processados = [v for v in vehicles_processados if id(v) in veiculos_que_passaram_nesta_chave]
         else:
             # Filtros exatos aceitam múltiplos valores (OR)
             valores_normalizados = [normalizar(v) for v in valores]
-            for v in vehicles_processados:
-                valor_campo_veiculo = normalizar(str(v.get(chave_filtro, "")))
-                if valor_campo_veiculo in valores_normalizados:
-                    veiculos_que_passaram_nesta_chave.append(v)
-        vehicles_processados = veiculos_que_passaram_nesta_chave
+            vehicles_processados = [
+                v for v in vehicles_processados
+                if normalizar(str(v.get(chave_filtro, ""))) in valores_normalizados
+            ]
         if not vehicles_processados:
-            break
+            return []
+
     # Filtro de AnoMax
     if anomax:
         try:
