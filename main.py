@@ -158,9 +158,32 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         )
     return vehicles_processados
 
-def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
+def tentativa_valormax_expandida(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
+    """Tenta os 3 aumentos de ValorMax. Retorna resultado e info do fallback."""
+    for i in range(1, 4):
+        novo_valormax = float(valormax) + (12000 * i)
+        resultado_temp = filtrar_veiculos(
+            vehicles,
+            {k: v for k, v in filtros.items() if k != "ValorMax"},
+            valormax=novo_valormax,
+            anomax=anomax,
+            kmmax=kmmax
+        )
+        if ids_excluir:
+            resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
+        if resultado_temp:
+            return resultado_temp, {
+                "tentativa_valormax": {
+                    "valores_testados": [float(valormax) + 12000 * j for j in range(1, i+1)],
+                    "valor_usado": novo_valormax
+                }
+            }
+    return None, {}
+
+def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade, ids_excluir):
     filtros_base = dict(filtros)
     removidos = []
+    fallback_info = {}
     while True:
         ativos = [k for k in filtros_base if filtros_base[k]]
         # Só pode remover modelo se for o único sobrando
@@ -170,7 +193,6 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
             candidatos = ativos
         if not candidatos:
             break
-        # Menos prioritário por último na lista de prioridade
         filtro_a_remover = None
         for chave in reversed(prioridade):
             if chave in candidatos:
@@ -183,12 +205,25 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
         valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
         anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
         kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
+
+        # Se ValorMax ainda está presente, tenta expandir antes de remover
+        if valormax_temp:
+            resultado_exp, info_exp = tentativa_valormax_expandida(
+                vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp, ids_excluir
+            )
+            if resultado_exp:
+                removidos.append(filtro_a_remover)
+                fallback_info.update(info_exp)
+                return resultado_exp, removidos, fallback_info
+
         resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
+        if ids_excluir:
+            resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
         removidos.append(filtro_a_remover)
         if resultado:
-            return resultado, removidos
+            return resultado, removidos, fallback_info
         filtros_base = filtros_base_temp
-    return [], removidos
+    return [], removidos, fallback_info
 
 @app.on_event("startup")
 def agendar_tarefas():
@@ -234,58 +269,35 @@ def get_data(request: Request):
         "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
-    # Remove "ValorMax" dos filtros ativos para tentativas de expansão
-    filtros_ativos_sem_valormax = dict(filtros_ativos)
-    filtros_ativos_sem_valormax.pop("ValorMax", None)
-    resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
 
-    # EXCLUI IDs se solicitado
     ids_excluir = set()
     if excluir:
         ids_excluir = set(e.strip() for e in excluir.split(",") if e.strip())
-    if ids_excluir:
-        resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
 
     fallback_info = {}
 
-    # Tentativas de expandir o ValorMax em +12k até 3x
+    # Primeiro: se tem ValorMax, tenta os 3 aumentos
+    resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
+    if ids_excluir:
+        resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
     if not resultado and valormax:
-        for i in range(1, 4):
-            novo_valormax = float(valormax) + (12000 * i)
-            resultado_temp = filtrar_veiculos(
-                vehicles,
-                filtros_ativos_sem_valormax,
-                valormax=novo_valormax,
-                anomax=anomax,
-                kmmax=kmmax
-            )
-            if ids_excluir:
-                resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
-            if resultado_temp:
-                resultado = resultado_temp
-                fallback_info = {
-                    "tentativa_valormax": {
-                        "valores_testados": [float(valormax) + 12000 * j for j in range(1, i+1)],
-                        "valor_usado": novo_valormax
-                    }
-                }
-                break
-
-    # Fallback progressivo
-    if not resultado and filtros_ativos:
-        resultado_fallback, filtros_removidos = fallback_progressivo(
-            vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
+        resultado, info_exp = tentativa_valormax_expandida(
+            vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
         )
-        if ids_excluir:
-            resultado_fallback = [v for v in resultado_fallback if str(v.get("id")) not in ids_excluir]
+        if resultado:
+            fallback_info.update(info_exp)
+
+    # Só se ainda não achou, começa o fallback progressivo
+    if not resultado and filtros_ativos:
+        resultado_fallback, filtros_removidos, fallback_info_fb = fallback_progressivo(
+            vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE, ids_excluir
+        )
         if resultado_fallback:
             resultado = resultado_fallback
-            fallback_info = {
-                **fallback_info,
-                "fallback": {"removidos": filtros_removidos}
-            }
+            fallback_info.update({"fallback": {"removidos": filtros_removidos}})
+            fallback_info.update(fallback_info_fb)
 
-    if simples == "1":
+    if simples == "1" and resultado:
         for v in resultado:
             fotos = v.get("fotos")
             if isinstance(fotos, list):
