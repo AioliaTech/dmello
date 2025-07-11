@@ -284,4 +284,49 @@ def get_data(request: Request):
 
     ids_excluir = set()
     if excluir:
-        ids_exclu_
+        ids_excluir = set(e.strip() for e in excluir.split(",") if e.strip())
+
+    fallback_info = {}
+
+    # 1. Primeira tentativa, tudo junto
+    resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
+    if ids_excluir:
+        resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
+    if not resultado and valormax:
+        resultado, info_exp = tentativa_valormax_expandida(
+            vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
+        )
+        if resultado:
+            fallback_info.update(info_exp)
+
+    # 2. Se ainda não achou, entra fallback (e sempre re-roda após cada remoção)
+    if not resultado and filtros_ativos:
+        resultado_fallback, filtros_removidos, fallback_info_fb = fallback_progressivo(
+            vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE, ids_excluir
+        )
+        if resultado_fallback:
+            resultado = resultado_fallback
+            fallback_info.update({"fallback": {"removidos": filtros_removidos}})
+            fallback_info.update(fallback_info_fb)
+
+    if simples == "1" and resultado:
+        for v in resultado:
+            fotos = v.get("fotos")
+            if isinstance(fotos, list):
+                v["fotos"] = fotos[:1] if fotos else []
+            v.pop("opcionais", None)
+
+    if resultado:
+        resposta = {
+            "resultados": resultado,
+            "total_encontrado": len(resultado)
+        }
+        if fallback_info:
+            resposta.update(fallback_info)
+        return JSONResponse(content=resposta)
+
+    return JSONResponse(content={
+        "resultados": [],
+        "total_encontrado": 0,
+        "instrucao_ia": "Não encontramos veículos com os parâmetros informados e também não encontramos opções próximas."
+    })
