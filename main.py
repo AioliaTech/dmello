@@ -129,7 +129,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     if valormax:
         try:
             teto = float(valormax)
-            max_price_limit = teto * 0.2
+            max_price_limit = teto * 1.0
             vehicles_processados = [v for v in vehicles_processados if converter_preco(v.get("preco")) is not None and converter_preco(v.get("preco")) <= max_price_limit]
         except ValueError:
             vehicles_processados = []
