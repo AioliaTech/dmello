@@ -108,22 +108,16 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         if not vehicles_processados:
             return []
 
-    # DEBUG PRINT: Antes do filtro de AnoMax
-    print("DEBUG ANOMAX - ANTES:", [(v.get("id"), v.get("ano")) for v in vehicles_processados])
-
     # Filtro de AnoMax (teto: só veículos até o ano informado, inclusive)
     if anomax:
         try:
             anomax_int = int(anomax)
             vehicles_processados = [
                 v for v in vehicles_processados
-                if v.get("ano") and converter_ano(v.get("ano")) <= anomax_int
+                if (converter_ano(v.get("ano")) is not None and converter_ano(v.get("ano")) <= anomax_int)
             ]
         except Exception:
             vehicles_processados = []
-
-    # DEBUG PRINT: Depois do filtro de AnoMax
-    print("DEBUG ANOMAX - DEPOIS:", [(v.get("id"), v.get("ano")) for v in vehicles_processados])
 
     # Filtro de KmMax com margem de 15.000
     if kmmax:
@@ -233,6 +227,7 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
         removidos.append(filtro_a_remover)
         if resultado:
             fallback_info.update({"fallback": {"removidos": removidos}})
+            fallback_info.update(fallback_info)
             return resultado, removidos, fallback_info
 
         filtros_base = filtros_base_temp
