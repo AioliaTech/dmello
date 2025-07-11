@@ -25,8 +25,6 @@ FALLBACK_PRIORIDADE = [
     "combustivel"    # MENOS importante (removido primeiro)
 ]
 
-FILTROS_ESPECIAIS = ["ValorMax", "AnoMax", "KmMax"]
-
 def inferir_categoria_por_modelo(modelo_buscado):
     modelo_norm = normalizar(modelo_buscado)
     return MAPEAMENTO_CATEGORIAS.get(modelo_norm)
@@ -161,13 +159,10 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     return vehicles_processados
 
 def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
-    FILTROS_EXTRAS = ["ValorMax", "AnoMax", "KmMax"]
-    def filtros_removiveis(filtros):
-        return [k for k in filtros if k not in FILTROS_EXTRAS and filtros[k]]
     filtros_base = dict(filtros)
     removidos = []
     while True:
-        removiveis = filtros_removiveis(filtros_base)
+        removiveis = [k for k in filtros_base if filtros_base[k]]
         # Só remove modelo se for o único removível
         if "modelo" in removiveis and len(removiveis) > 1:
             removiveis_sem_modelo = [k for k in removiveis if k != "modelo"]
@@ -237,13 +232,19 @@ def get_data(request: Request):
         "tipo": query_params.get("tipo"),
         "modelo": query_params.get("modelo"),
         "categoria": query_params.get("categoria"),
+        "ValorMax": valormax,
         "cambio": query_params.get("cambio"),
+        "AnoMax": anomax,
         "opcionais": query_params.get("opcionais"),
+        "KmMax": kmmax,
         "marca": query_params.get("marca"),
         "cor": query_params.get("cor"),
         "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
+    # Remove "ValorMax" dos filtros ativos para tentativas de expansão
+    filtros_ativos_sem_valormax = dict(filtros_ativos)
+    filtros_ativos_sem_valormax.pop("ValorMax", None)
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
 
     # EXCLUI IDs se solicitado
@@ -261,7 +262,7 @@ def get_data(request: Request):
             novo_valormax = float(valormax) + (12000 * i)
             resultado_temp = filtrar_veiculos(
                 vehicles,
-                filtros_ativos,
+                filtros_ativos_sem_valormax,
                 valormax=novo_valormax,
                 anomax=anomax,
                 kmmax=kmmax
@@ -278,8 +279,8 @@ def get_data(request: Request):
                 }
                 break
 
-    # Fallback progressivo para filtros não especiais
-    if not resultado and (len([k for k in filtros_ativos if k not in FILTROS_ESPECIAIS and filtros_ativos[k]]) > 0):
+    # Fallback progressivo (pode remover qualquer filtro, inclusive especiais)
+    if not resultado and filtros_ativos:
         resultado_fallback, filtros_removidos = fallback_progressivo(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
         )
