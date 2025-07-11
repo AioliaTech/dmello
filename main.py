@@ -13,7 +13,7 @@ MAPEAMENTO_CATEGORIAS = {
 }
 
 FALLBACK_PRIORIDADE = [
-    "modelo",
+    "modelo",        # MAIS importante (removido por último)
     "categoria",
     "ValorMax",
     "cambio",
@@ -22,7 +22,7 @@ FALLBACK_PRIORIDADE = [
     "KmMax",
     "marca",
     "cor",
-    "combustivel"
+    "combustivel"    # MENOS importante (removido primeiro)
 ]
 
 FILTROS_ESPECIAIS = ["ValorMax", "AnoMax", "KmMax"]
@@ -163,15 +163,29 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
 def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
     FILTROS_EXTRAS = ["ValorMax", "AnoMax", "KmMax"]
     def filtros_removiveis(filtros):
+        # Só conta como removível se não for especial e estiver preenchido
         return [k for k in filtros if k not in FILTROS_EXTRAS and filtros[k]]
     filtros_base = dict(filtros)
     removidos = []
     while len(filtros_removiveis(filtros_base)) > 0:
+        removiveis = filtros_removiveis(filtros_base)
+        # Não remove modelo enquanto houver outros removíveis
+        if "modelo" in removiveis and len(removiveis) > 1:
+            removiveis_sem_modelo = [k for k in removiveis if k != "modelo"]
+        else:
+            removiveis_sem_modelo = removiveis
+
         filtro_a_remover = None
         for chave in reversed(prioridade):
-            if chave in filtros_base and filtros_base[chave]:
+            if chave in removiveis_sem_modelo:
                 filtro_a_remover = chave
                 break
+        if not filtro_a_remover:
+            # Agora pode remover modelo se ele for o único
+            for chave in reversed(prioridade):
+                if chave in removiveis:
+                    filtro_a_remover = chave
+                    break
         if not filtro_a_remover:
             break
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
