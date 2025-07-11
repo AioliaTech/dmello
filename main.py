@@ -161,15 +161,13 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
     filtros_base = dict(filtros)
     removidos = []
     while len(filtros_base) > 1:
-        # Encontra o filtro ativo menos importante
         filtro_a_remover = None
         for chave in reversed(prioridade):
             if chave in filtros_base and filtros_base[chave]:
                 filtro_a_remover = chave
                 break
         if not filtro_a_remover:
-            break  # Nenhum filtro removível encontrado
-
+            break
         # Antes de remover ValorMax, tenta as expansões
         if filtro_a_remover == "ValorMax" and valormax:
             filtros_base_temp = {k: v for k, v in filtros_base.items()}
@@ -184,10 +182,9 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
                     kmmax=kmmax
                 )
                 if resultado:
-                    removidos.append(f"{filtro_a_remover}_expandido_{novo_valormax}")
+                    removidos.append(f"ValorMax_expandido_{novo_valormax}")
                     return resultado, removidos
             # Se não encontrou, aí sim remove ValorMax normalmente
-
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
         valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
