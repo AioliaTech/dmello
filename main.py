@@ -186,6 +186,7 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
     filtros_base = dict(filtros)
     removidos = []
     fallback_info = {}
+
     while True:
         ativos = [k for k in filtros_base if filtros_base[k]]
         # Só pode remover modelo se for o único sobrando
@@ -195,6 +196,7 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
             candidatos = ativos
         if not candidatos:
             break
+
         filtro_a_remover = None
         for chave in reversed(prioridade):
             if chave in candidatos:
@@ -202,29 +204,37 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
                 break
         if not filtro_a_remover:
             break
+
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
         valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
         anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
         kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
 
-        # Se ValorMax ainda está presente, tenta expandir antes de remover
+        # Tenta valorMax expandido sempre que estiver ativo nos filtros restantes
+        resultado_exp = None
+        info_exp = {}
         if valormax_temp:
             resultado_exp, info_exp = tentativa_valormax_expandida(
                 vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp, ids_excluir
             )
-            if resultado_exp:
-                removidos.append(filtro_a_remover)
-                fallback_info.update(info_exp)
-                return resultado_exp, removidos, fallback_info
+        if resultado_exp:
+            removidos.append(filtro_a_remover)
+            fallback_info.update(info_exp)
+            return resultado_exp, removidos, fallback_info
 
         resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
         if ids_excluir:
             resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
+
         removidos.append(filtro_a_remover)
         if resultado:
+            fallback_info.update({"fallback": {"removidos": removidos}})
             return resultado, removidos, fallback_info
+
+        # Atualiza filtros para próxima rodada
         filtros_base = filtros_base_temp
+
     return [], removidos, fallback_info
 
 @app.on_event("startup")
@@ -274,49 +284,4 @@ def get_data(request: Request):
 
     ids_excluir = set()
     if excluir:
-        ids_excluir = set(e.strip() for e in excluir.split(",") if e.strip())
-
-    fallback_info = {}
-
-    # Primeiro: se tem ValorMax, tenta os 3 aumentos
-    resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
-    if ids_excluir:
-        resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
-    if not resultado and valormax:
-        resultado, info_exp = tentativa_valormax_expandida(
-            vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
-        )
-        if resultado:
-            fallback_info.update(info_exp)
-
-    # Só se ainda não achou, começa o fallback progressivo
-    if not resultado and filtros_ativos:
-        resultado_fallback, filtros_removidos, fallback_info_fb = fallback_progressivo(
-            vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE, ids_excluir
-        )
-        if resultado_fallback:
-            resultado = resultado_fallback
-            fallback_info.update({"fallback": {"removidos": filtros_removidos}})
-            fallback_info.update(fallback_info_fb)
-
-    if simples == "1" and resultado:
-        for v in resultado:
-            fotos = v.get("fotos")
-            if isinstance(fotos, list):
-                v["fotos"] = fotos[:1] if fotos else []
-            v.pop("opcionais", None)
-
-    if resultado:
-        resposta = {
-            "resultados": resultado,
-            "total_encontrado": len(resultado)
-        }
-        if fallback_info:
-            resposta.update(fallback_info)
-        return JSONResponse(content=resposta)
-
-    return JSONResponse(content={
-        "resultados": [],
-        "total_encontrado": 0,
-        "instrucao_ia": "Não encontramos veículos com os parâmetros informados e também não encontramos opções próximas."
-    })
+        ids_exclu_
