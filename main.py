@@ -229,18 +229,29 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
 
-        # Progressiva antes de remover filtro especial
-        resultado_temp, info = tentativas_progressivas(
-            vehicles, filtros_base_temp,
-            valormax_fallback if filtro_a_remover != "ValorMax" else None,
-            anomax_fallback if filtro_a_remover != "AnoMax" else None,
-            kmmax_fallback if filtro_a_remover != "KmMax" else None,
-            ids_excluir
-        )
-        if resultado_temp:
-            removidos.append(f"{filtro_a_remover}_expandido")
-            return resultado_temp, removidos
-        # Remove filtro definitivamente
+        # Progressiva ANTES de remover filtro especial
+        if filtro_a_remover in ["ValorMax", "KmMax", "AnoMax"]:
+            valor_original = None
+            if filtro_a_remover == "ValorMax":
+                valor_original = valormax_fallback
+            elif filtro_a_remover == "KmMax":
+                valor_original = kmmax_fallback
+            elif filtro_a_remover == "AnoMax":
+                valor_original = anomax_fallback
+
+            # Chama tentativas_progressivas passando o valor do filtro a ser removido!
+            resultado_temp, info = tentativas_progressivas(
+                vehicles, filtros_base_temp,
+                valormax_fallback if filtro_a_remover != "ValorMax" else valor_original,
+                anomax_fallback if filtro_a_remover != "AnoMax" else valor_original,
+                kmmax_fallback if filtro_a_remover != "KmMax" else valor_original,
+                ids_excluir
+            )
+            if resultado_temp:
+                removidos.append(f"{filtro_a_remover}_expandido")
+                return resultado_temp, removidos
+
+        # Agora remove filtro definitivamente
         if filtro_a_remover == "ValorMax":
             valormax_fallback = None
         if filtro_a_remover == "KmMax":
@@ -249,7 +260,8 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
             anomax_fallback = None
 
         resultado = filtrar_veiculos(
-            vehicles, filtros_base_temp,
+            vehicles,
+            filtros_base_temp,
             valormax=valormax_fallback,
             anomax=anomax_fallback,
             kmmax=kmmax_fallback
@@ -316,7 +328,7 @@ def get_data(request: Request):
 
     fallback_info = {}
 
-    # Tentativas progressivas ANTES do fallback
+    # Tentativas progressivas ANTES do fallback (sempre, mesmo com múltiplos filtros)
     if not resultado:
         resultado, info = tentativas_progressivas(
             vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
@@ -324,7 +336,7 @@ def get_data(request: Request):
         if resultado:
             fallback_info = info
 
-    # Fallback progressivo (2+ filtros)
+    # Só entra no fallback se ainda não encontrou nada
     if not resultado and len(filtros_ativos) > 1:
         resultado_fallback, filtros_removidos = fallback_progressivo(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE, ids_excluir
