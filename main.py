@@ -244,7 +244,7 @@ def get_data(request: Request):
     fallback_info = {}
 
     # Tentativas de expandir o ValorMax em +12k até 3x
-    if not resultado and valormax and len(filtros_ativos) > 1:
+    if not resultado and valormax:
         for i in range(1, 4):
             novo_valormax = float(valormax) + (12000 * i)
             resultado_temp = filtrar_veiculos(
