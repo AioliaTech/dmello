@@ -108,7 +108,10 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         if not vehicles_processados:
             return []
 
-    # Filtro de AnoMax (agora é teto: só veículos até o ano informado, inclusive)
+    # DEBUG PRINT: Antes do filtro de AnoMax
+    print("DEBUG ANOMAX - ANTES:", [(v.get("id"), v.get("ano")) for v in vehicles_processados])
+
+    # Filtro de AnoMax (teto: só veículos até o ano informado, inclusive)
     if anomax:
         try:
             anomax_int = int(anomax)
@@ -118,6 +121,10 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
             ]
         except Exception:
             vehicles_processados = []
+
+    # DEBUG PRINT: Depois do filtro de AnoMax
+    print("DEBUG ANOMAX - DEPOIS:", [(v.get("id"), v.get("ano")) for v in vehicles_processados])
+
     # Filtro de KmMax com margem de 15.000
     if kmmax:
         try:
@@ -160,7 +167,6 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     return vehicles_processados
 
 def tentativa_valormax_expandida(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
-    """Tenta os 3 aumentos de ValorMax. Retorna resultado e info do fallback."""
     for i in range(1, 4):
         novo_valormax = float(valormax) + (12000 * i)
         resultado_temp = filtrar_veiculos(
@@ -188,7 +194,6 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
 
     while True:
         ativos = [k for k in filtros_base if filtros_base[k]]
-        # Só pode remover modelo se for o único sobrando
         if "modelo" in ativos and len(ativos) > 1:
             candidatos = [k for k in ativos if k != "modelo"]
         else:
@@ -210,7 +215,6 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
         anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
         kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
 
-        # Tenta valorMax expandido sempre que estiver ativo nos filtros restantes
         resultado_exp = None
         info_exp = {}
         if valormax_temp:
@@ -231,7 +235,6 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
             fallback_info.update({"fallback": {"removidos": removidos}})
             return resultado, removidos, fallback_info
 
-        # Atualiza filtros para próxima rodada
         filtros_base = filtros_base_temp
 
     return [], removidos, fallback_info
@@ -287,7 +290,6 @@ def get_data(request: Request):
 
     fallback_info = {}
 
-    # 1. Primeira tentativa, tudo junto
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
     if ids_excluir:
         resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
@@ -298,7 +300,6 @@ def get_data(request: Request):
         if resultado:
             fallback_info.update(info_exp)
 
-    # 2. Se ainda não achou, entra fallback (e sempre re-roda após cada remoção)
     if not resultado and filtros_ativos:
         resultado_fallback, filtros_removidos, fallback_info_fb = fallback_progressivo(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE, ids_excluir
