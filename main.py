@@ -84,6 +84,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                         texto_normalizado_campo_veiculo = normalizar(str(conteudo_original_campo_veiculo))
                         if not texto_normalizado_campo_veiculo:
                             continue
+                        # Fuzzy match
                         if palavra_q_norm in texto_normalizado_campo_veiculo:
                             veiculos_que_passaram_nesta_chave.add(id(v))
                             break
@@ -161,30 +162,14 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
     filtros_base = dict(filtros)
     removidos = []
     while len(filtros_base) > 1:
+        # Encontra o filtro ativo menos importante
         filtro_a_remover = None
         for chave in reversed(prioridade):
             if chave in filtros_base and filtros_base[chave]:
                 filtro_a_remover = chave
                 break
         if not filtro_a_remover:
-            break
-        # Antes de remover ValorMax, tenta as expansões
-        if filtro_a_remover == "ValorMax" and valormax:
-            filtros_base_temp = {k: v for k, v in filtros_base.items()}
-            filtros_base_temp.pop("ValorMax")
-            for i in range(1, 4):
-                novo_valormax = float(valormax) + (12000 * i)
-                resultado = filtrar_veiculos(
-                    vehicles,
-                    filtros_base_temp,
-                    valormax=novo_valormax,
-                    anomax=anomax,
-                    kmmax=kmmax
-                )
-                if resultado:
-                    removidos.append(f"ValorMax_expandido_{novo_valormax}")
-                    return resultado, removidos
-            # Se não encontrou, aí sim remove ValorMax normalmente
+            break  # Nenhum filtro removível encontrado
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
         valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
