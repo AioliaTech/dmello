@@ -223,20 +223,15 @@ def get_data(request: Request):
         "tipo": query_params.get("tipo"),
         "modelo": query_params.get("modelo"),
         "categoria": query_params.get("categoria"),
-        "ValorMax": valormax,
         "cambio": query_params.get("cambio"),
-        "AnoMax": anomax,
         "opcionais": query_params.get("opcionais"),
-        "KmMax": kmmax,
         "marca": query_params.get("marca"),
         "cor": query_params.get("cor"),
         "combustivel": query_params.get("combustivel")
     }
-    filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
+    FILTROS_EXTRAS = ["ValorMax", "AnoMax", "KmMax"]
+    filtros_ativos = {k: v for k, v in filtros_originais.items() if v and k not in FILTROS_EXTRAS}
     print("FILTROS ATIVOS:", filtros_ativos)
-    # Remove "ValorMax" dos filtros ativos para tentativas de expansão
-    filtros_ativos_sem_valormax = dict(filtros_ativos)
-    filtros_ativos_sem_valormax.pop("ValorMax", None)
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
 
     # EXCLUI IDs se solicitado
@@ -254,7 +249,7 @@ def get_data(request: Request):
             novo_valormax = float(valormax) + (12000 * i)
             resultado_temp = filtrar_veiculos(
                 vehicles,
-                filtros_ativos_sem_valormax,
+                filtros_ativos,
                 valormax=novo_valormax,
                 anomax=anomax,
                 kmmax=kmmax
