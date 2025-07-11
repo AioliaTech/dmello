@@ -40,7 +40,7 @@ def converter_preco(valor_str):
 
 def converter_ano(valor_str):
     try:
-        return int(str(valor_str).strip())
+        return int(str(valor_str).strip().replace('\n', '').replace('\r', '').replace(' ', ''))
     except (ValueError, TypeError):
         return None
 
@@ -108,13 +108,15 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         if not vehicles_processados:
             return []
 
-    # Filtro de AnoMax
+    # Filtro de AnoMax (apenas para cima, incluindo o próprio)
     if anomax:
         try:
             anomax_int = int(anomax)
-            ano_min = anomax_int - 2
             ano_max = anomax_int + 2
-            vehicles_processados = [v for v in vehicles_processados if v.get("ano") and ano_min <= converter_ano(v.get("ano")) <= ano_max]
+            vehicles_processados = [
+                v for v in vehicles_processados
+                if v.get("ano") and anomax_int <= converter_ano(v.get("ano")) <= ano_max
+            ]
         except Exception:
             vehicles_processados = []
     # Filtro de KmMax com margem de 15.000
