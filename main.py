@@ -241,7 +241,7 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
                 break
         if not filtro_a_remover:
             break
-        # Antes de remover ValorMax, tenta as expansões
+        # ValorMax
         if filtro_a_remover == "ValorMax" and valormax_fallback:
             filtros_base_temp = {k: v for k, v in filtros_base.items()}
             filtros_base_temp.pop("ValorMax")
@@ -252,6 +252,7 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
                 removidos.append(f"ValorMax_expandido_{info['tentativa_valormax']['valor_usado']}")
                 return resultado_temp, removidos
             valormax_fallback = None
+        # KmMax
         if filtro_a_remover == "KmMax" and kmmax_fallback:
             filtros_base_temp = {k: v for k, v in filtros_base.items()}
             filtros_base_temp.pop("KmMax")
@@ -262,6 +263,7 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
                 removidos.append(f"KmMax_expandido_{info['tentativa_kmmax']['valor_usado']}")
                 return resultado_temp, removidos
             kmmax_fallback = None
+        # AnoMax
         if filtro_a_remover == "AnoMax" and anomax_fallback:
             filtros_base_temp = {k: v for k, v in filtros_base.items()}
             filtros_base_temp.pop("AnoMax")
