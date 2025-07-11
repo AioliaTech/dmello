@@ -158,13 +158,11 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     return vehicles_processados
 
 def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
-    # Tenta ValorMax
-    if valormax:
+    # Tenta ValorMax progressivo primeiro, SE estiver presente
+    if valormax is not None:
         for i in range(4):
             novo_valor = float(valormax) + 5000 * i
-            resultado = filtrar_veiculos(
-                vehicles, filtros, valormax=novo_valor, anomax=anomax, kmmax=kmmax
-            )
+            resultado = filtrar_veiculos(vehicles, filtros, valormax=novo_valor, anomax=anomax, kmmax=kmmax)
             if ids_excluir:
                 resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
             if resultado:
@@ -174,13 +172,11 @@ def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excl
                         "valor_usado": novo_valor
                     }
                 }
-    # Tenta KmMax
-    if kmmax:
+    # Tenta KmMax progressivo, SE estiver presente
+    if kmmax is not None:
         for i in range(4):
             novo_km = int(kmmax) + 2000 * i
-            resultado = filtrar_veiculos(
-                vehicles, filtros, valormax=valormax, anomax=anomax, kmmax=novo_km
-            )
+            resultado = filtrar_veiculos(vehicles, filtros, valormax=valormax, anomax=anomax, kmmax=novo_km)
             if ids_excluir:
                 resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
             if resultado:
@@ -190,16 +186,14 @@ def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excl
                         "valor_usado": novo_km
                     }
                 }
-    # Tenta AnoMax
-    if anomax:
+    # Tenta AnoMax progressivo, SE estiver presente
+    if anomax is not None:
         anos = [int(anomax)]
         for i in range(1, 4):
             anos.append(int(anomax) + i)
             anos.append(int(anomax) - i)
         for ano in anos:
-            resultado = filtrar_veiculos(
-                vehicles, filtros, valormax=valormax, anomax=ano, kmmax=kmmax
-            )
+            resultado = filtrar_veiculos(vehicles, filtros, valormax=valormax, anomax=ano, kmmax=kmmax)
             if ids_excluir:
                 resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
             if resultado:
@@ -239,7 +233,6 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
             elif filtro_a_remover == "AnoMax":
                 valor_original = anomax_fallback
 
-            # Chama tentativas_progressivas passando o valor do filtro a ser removido!
             resultado_temp, info = tentativas_progressivas(
                 vehicles, filtros_base_temp,
                 valormax_fallback if filtro_a_remover != "ValorMax" else valor_original,
@@ -328,7 +321,7 @@ def get_data(request: Request):
 
     fallback_info = {}
 
-    # Tentativas progressivas ANTES do fallback (sempre, mesmo com múltiplos filtros)
+    # Tentativas progressivas ANTES do fallback
     if not resultado:
         resultado, info = tentativas_progressivas(
             vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
