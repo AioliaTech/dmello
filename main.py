@@ -158,7 +158,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     return vehicles_processados
 
 def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
-    # Tenta ValorMax progressivo primeiro, SE estiver presente
+    # ValorMax progressivo
     if valormax is not None:
         for i in range(4):
             novo_valor = float(valormax) + 5000 * i
@@ -172,7 +172,7 @@ def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excl
                         "valor_usado": novo_valor
                     }
                 }
-    # Tenta KmMax progressivo, SE estiver presente
+    # KmMax progressivo
     if kmmax is not None:
         for i in range(4):
             novo_km = int(kmmax) + 2000 * i
@@ -186,7 +186,7 @@ def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excl
                         "valor_usado": novo_km
                     }
                 }
-    # Tenta AnoMax progressivo, SE estiver presente
+    # AnoMax progressivo
     if anomax is not None:
         anos = [int(anomax)]
         for i in range(1, 4):
@@ -321,15 +321,20 @@ def get_data(request: Request):
 
     fallback_info = {}
 
-    # Tentativas progressivas ANTES do fallback
-    if not resultado:
+    # Se existir QUALQUER dos “Max” ativos, tenta as tentativas progressivas ANTES do fallback
+    tem_max = any([
+        filtros_ativos.get("ValorMax"),
+        filtros_ativos.get("KmMax"),
+        filtros_ativos.get("AnoMax")
+    ])
+    if not resultado and tem_max:
         resultado, info = tentativas_progressivas(
             vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
         )
         if resultado:
             fallback_info = info
 
-    # Só entra no fallback se ainda não encontrou nada
+    # Só entra no fallback se ainda não encontrou nada e há mais de 1 filtro ativo
     if not resultado and len(filtros_ativos) > 1:
         resultado_fallback, filtros_removidos = fallback_progressivo(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE, ids_excluir
