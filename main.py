@@ -163,36 +163,39 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
 def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
     FILTROS_EXTRAS = ["ValorMax", "AnoMax", "KmMax"]
     def filtros_removiveis(filtros):
-        # Só conta como removível se não for especial e estiver preenchido
         return [k for k in filtros if k not in FILTROS_EXTRAS and filtros[k]]
     filtros_base = dict(filtros)
     removidos = []
-    while len(filtros_removiveis(filtros_base)) > 0:
+    while True:
         removiveis = filtros_removiveis(filtros_base)
-        # Não remove modelo enquanto houver outros removíveis
+        # Só remove modelo se for o único removível
         if "modelo" in removiveis and len(removiveis) > 1:
             removiveis_sem_modelo = [k for k in removiveis if k != "modelo"]
         else:
             removiveis_sem_modelo = removiveis
+
+        if not removiveis_sem_modelo and "modelo" not in removiveis:
+            break  # nada mais para remover
 
         filtro_a_remover = None
         for chave in reversed(prioridade):
             if chave in removiveis_sem_modelo:
                 filtro_a_remover = chave
                 break
-        if not filtro_a_remover:
-            # Agora pode remover modelo se ele for o único
-            for chave in reversed(prioridade):
-                if chave in removiveis:
-                    filtro_a_remover = chave
-                    break
+
+        # Se não sobrou nada para remover, aí pode remover modelo
+        if not filtro_a_remover and "modelo" in removiveis:
+            filtro_a_remover = "modelo"
+
         if not filtro_a_remover:
             break
+
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
         valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
         anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
         kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
+
         resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
         removidos.append(filtro_a_remover)
         if resultado:
