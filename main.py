@@ -25,6 +25,8 @@ FALLBACK_PRIORIDADE = [
     "combustivel"
 ]
 
+FILTROS_ESPECIAIS = ["ValorMax", "AnoMax", "KmMax"]
+
 def inferir_categoria_por_modelo(modelo_buscado):
     modelo_norm = normalizar(modelo_buscado)
     return MAPEAMENTO_CATEGORIAS.get(modelo_norm)
@@ -106,7 +108,6 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
                 if normalizar(str(v.get(chave_filtro, ""))) in valores_normalizados
             ]
         if not vehicles_processados:
-            print("LIMPANDO TUDO - filtro:", chave_filtro, "filtros:", filtros)
             return []
 
     # Filtro de AnoMax
@@ -117,19 +118,15 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
             ano_max = anomax_int + 2
             vehicles_processados = [v for v in vehicles_processados if v.get("ano") and ano_min <= converter_ano(v.get("ano")) <= ano_max]
         except Exception:
-            print("EXCEPTION NO FILTRO AnoMax, LISTA ZERADA")
             vehicles_processados = []
     # Filtro de KmMax com margem de 15.000
     if kmmax:
-        print("ANTES KmMax:", [(v.get("id"), v.get("km")) for v in vehicles_processados])
         try:
             kmmax_int = int(kmmax)
             km_limite = kmmax_int + 15000
             vehicles_processados = [v for v in vehicles_processados if v.get("km") and converter_km(v.get("km")) <= km_limite]
         except Exception:
-            print("EXCEPTION NO FILTRO KmMax, LISTA ZERADA")
             vehicles_processados = []
-        print("DEPOIS KmMax:", [(v.get("id"), v.get("km")) for v in vehicles_processados])
     # Filtro de ValorMax
     if valormax:
         try:
@@ -137,7 +134,6 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
             max_price_limit = teto * 1.0
             vehicles_processados = [v for v in vehicles_processados if converter_preco(v.get("preco")) is not None and converter_preco(v.get("preco")) <= max_price_limit]
         except ValueError:
-            print("EXCEPTION NO FILTRO ValorMax, LISTA ZERADA")
             vehicles_processados = []
     # Ordenação pós-filtro
     if kmmax:
@@ -165,17 +161,19 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
     return vehicles_processados
 
 def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
+    FILTROS_EXTRAS = ["ValorMax", "AnoMax", "KmMax"]
+    def filtros_removiveis(filtros):
+        return [k for k in filtros if k not in FILTROS_EXTRAS and filtros[k]]
     filtros_base = dict(filtros)
     removidos = []
-    while len(filtros_base) > 1:
-        # Encontra o filtro ativo menos importante
+    while len(filtros_removiveis(filtros_base)) > 0:
         filtro_a_remover = None
         for chave in reversed(prioridade):
             if chave in filtros_base and filtros_base[chave]:
                 filtro_a_remover = chave
                 break
         if not filtro_a_remover:
-            break  # Nenhum filtro removível encontrado
+            break
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
         valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
@@ -210,8 +208,7 @@ def get_data(request: Request):
             return JSONResponse(content={"error": "Formato de dados inválido (veiculos não é uma lista)", "resultados": [], "total_encontrado": 0}, status_code=500)
     except KeyError:
         return JSONResponse(content={"error": "Formato de dados inválido (chave 'veiculos' não encontrada)", "resultados": [], "total_encontrado": 0}, status_code=500)
-    
-    print("VEICULOS LIDOS:", [(v.get("id"), v.get("km")) for v in vehicles])
+
     query_params = dict(request.query_params)
     valormax = query_params.pop("ValorMax", None)
     anomax = query_params.pop("AnoMax", None)
@@ -229,9 +226,7 @@ def get_data(request: Request):
         "cor": query_params.get("cor"),
         "combustivel": query_params.get("combustivel")
     }
-    FILTROS_EXTRAS = ["ValorMax", "AnoMax", "KmMax"]
-    filtros_ativos = {k: v for k, v in filtros_originais.items() if v and k not in FILTROS_EXTRAS}
-    print("FILTROS ATIVOS:", filtros_ativos)
+    filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
 
     # EXCLUI IDs se solicitado
@@ -266,8 +261,8 @@ def get_data(request: Request):
                 }
                 break
 
-    # Fallback progressivo
-    if not resultado and len(filtros_ativos) > 1:
+    # Fallback progressivo para filtros não especiais
+    if not resultado and (len([k for k in filtros_ativos if k not in FILTROS_ESPECIAIS and filtros_ativos[k]]) > 0):
         resultado_fallback, filtros_removidos = fallback_progressivo(
             vehicles, filtros_ativos, valormax, anomax, kmmax, FALLBACK_PRIORIDADE
         )
