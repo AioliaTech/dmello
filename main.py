@@ -157,74 +157,58 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         )
     return vehicles_processados
 
-def expandir_valormax(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
-    for i in range(1, 4):
-        novo_valormax = float(valormax) + (5000 * i)
-        resultado_temp = filtrar_veiculos(
-            vehicles,
-            filtros,
-            valormax=novo_valormax,
-            anomax=anomax,
-            kmmax=kmmax
-        )
-        if ids_excluir:
-            resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
-        if resultado_temp:
-            return resultado_temp, {
-                "tentativa_valormax": {
-                    "valores_testados": [float(valormax) + 5000 * j for j in range(1, i+1)],
-                    "valor_usado": novo_valormax
-                }
-            }
-    return None, {}
-
-def expandir_kmmax(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
-    for i in range(1, 4):
-        novo_kmmax = int(kmmax) + (2000 * i)
-        resultado_temp = filtrar_veiculos(
-            vehicles,
-            filtros,
-            valormax=valormax,
-            anomax=anomax,
-            kmmax=novo_kmmax
-        )
-        if ids_excluir:
-            resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
-        if resultado_temp:
-            return resultado_temp, {
-                "tentativa_kmmax": {
-                    "valores_testados": [int(kmmax) + 2000 * j for j in range(1, i+1)],
-                    "valor_usado": novo_kmmax
-                }
-            }
-    return None, {}
-
-def expandir_anomax(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
-    try:
-        ano_original = int(anomax)
-    except Exception:
-        return None, {}
-    tentativas = []
-    for desloc in range(1, 4):
-        for novo_ano in [ano_original + desloc, ano_original - desloc]:
-            resultado_temp = filtrar_veiculos(
-                vehicles,
-                filtros,
-                valormax=valormax,
-                anomax=novo_ano,
-                kmmax=kmmax
+def tentativas_progressivas(vehicles, filtros, valormax, anomax, kmmax, ids_excluir):
+    # Tenta ValorMax
+    if valormax:
+        for i in range(4):
+            novo_valor = float(valormax) + 5000 * i
+            resultado = filtrar_veiculos(
+                vehicles, filtros, valormax=novo_valor, anomax=anomax, kmmax=kmmax
             )
             if ids_excluir:
-                resultado_temp = [v for v in resultado_temp if str(v.get("id")) not in ids_excluir]
-            if resultado_temp:
-                tentativas.append(novo_ano)
-                return resultado_temp, {
-                    "tentativa_anomax": {
-                        "valores_testados": tentativas + [novo_ano],
-                        "valor_usado": novo_ano
+                resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
+            if resultado:
+                return resultado, {
+                    "tentativa_valormax": {
+                        "valores_testados": [float(valormax) + 5000 * j for j in range(i+1)],
+                        "valor_usado": novo_valor
                     }
                 }
-            tentativas.append(novo_ano)
+    # Tenta KmMax
+    if kmmax:
+        for i in range(4):
+            novo_km = int(kmmax) + 2000 * i
+            resultado = filtrar_veiculos(
+                vehicles, filtros, valormax=valormax, anomax=anomax, kmmax=novo_km
+            )
+            if ids_excluir:
+                resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
+            if resultado:
+                return resultado, {
+                    "tentativa_kmmax": {
+                        "valores_testados": [int(kmmax) + 2000 * j for j in range(i+1)],
+                        "valor_usado": novo_km
+                    }
+                }
+    # Tenta AnoMax
+    if anomax:
+        anos = [int(anomax)]
+        for i in range(1, 4):
+            anos.append(int(anomax) + i)
+            anos.append(int(anomax) - i)
+        for ano in anos:
+            resultado = filtrar_veiculos(
+                vehicles, filtros, valormax=valormax, anomax=ano, kmmax=kmmax
+            )
+            if ids_excluir:
+                resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
+            if resultado:
+                return resultado, {
+                    "tentativa_anomax": {
+                        "valores_testados": anos[:anos.index(ano)+1],
+                        "valor_usado": ano
+                    }
+                }
     return None, {}
 
 def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade, ids_excluir):
@@ -241,44 +225,31 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade,
                 break
         if not filtro_a_remover:
             break
-        # ValorMax
-        if filtro_a_remover == "ValorMax" and valormax_fallback:
-            filtros_base_temp = {k: v for k, v in filtros_base.items()}
-            filtros_base_temp.pop("ValorMax")
-            resultado_temp, info = expandir_valormax(
-                vehicles, filtros_base_temp, valormax_fallback, anomax_fallback, kmmax_fallback, ids_excluir
-            )
-            if resultado_temp:
-                removidos.append(f"ValorMax_expandido_{info['tentativa_valormax']['valor_usado']}")
-                return resultado_temp, removidos
-            valormax_fallback = None
-        # KmMax
-        if filtro_a_remover == "KmMax" and kmmax_fallback:
-            filtros_base_temp = {k: v for k, v in filtros_base.items()}
-            filtros_base_temp.pop("KmMax")
-            resultado_temp, info = expandir_kmmax(
-                vehicles, filtros_base_temp, valormax_fallback, anomax_fallback, kmmax_fallback, ids_excluir
-            )
-            if resultado_temp:
-                removidos.append(f"KmMax_expandido_{info['tentativa_kmmax']['valor_usado']}")
-                return resultado_temp, removidos
-            kmmax_fallback = None
-        # AnoMax
-        if filtro_a_remover == "AnoMax" and anomax_fallback:
-            filtros_base_temp = {k: v for k, v in filtros_base.items()}
-            filtros_base_temp.pop("AnoMax")
-            resultado_temp, info = expandir_anomax(
-                vehicles, filtros_base_temp, valormax_fallback, anomax_fallback, kmmax_fallback, ids_excluir
-            )
-            if resultado_temp:
-                removidos.append(f"AnoMax_expandido_{info['tentativa_anomax']['valor_usado']}")
-                return resultado_temp, removidos
-            anomax_fallback = None
+
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
+
+        # Progressiva antes de remover filtro especial
+        resultado_temp, info = tentativas_progressivas(
+            vehicles, filtros_base_temp,
+            valormax_fallback if filtro_a_remover != "ValorMax" else None,
+            anomax_fallback if filtro_a_remover != "AnoMax" else None,
+            kmmax_fallback if filtro_a_remover != "KmMax" else None,
+            ids_excluir
+        )
+        if resultado_temp:
+            removidos.append(f"{filtro_a_remover}_expandido")
+            return resultado_temp, removidos
+        # Remove filtro definitivamente
+        if filtro_a_remover == "ValorMax":
+            valormax_fallback = None
+        if filtro_a_remover == "KmMax":
+            kmmax_fallback = None
+        if filtro_a_remover == "AnoMax":
+            anomax_fallback = None
+
         resultado = filtrar_veiculos(
-            vehicles,
-            filtros_base_temp,
+            vehicles, filtros_base_temp,
             valormax=valormax_fallback,
             anomax=anomax_fallback,
             kmmax=kmmax_fallback
@@ -334,37 +305,20 @@ def get_data(request: Request):
         "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
-    filtros_ativos_sem_valormax = dict(filtros_ativos)
-    filtros_ativos_sem_valormax.pop("ValorMax", None)
     ids_excluir = set()
     if excluir:
         ids_excluir = set(e.strip() for e in excluir.split(",") if e.strip())
 
+    # Busca inicial normal
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
     if ids_excluir:
         resultado = [v for v in resultado if str(v.get("id")) not in ids_excluir]
 
     fallback_info = {}
 
-    # Expansão de ValorMax mesmo com só um parâmetro
-    if not resultado and valormax:
-        resultado, info = expandir_valormax(
-            vehicles, filtros_ativos_sem_valormax, valormax, anomax, kmmax, ids_excluir
-        )
-        if resultado:
-            fallback_info = info
-
-    # Expansão de KmMax mesmo com só um parâmetro
-    if not resultado and kmmax:
-        resultado, info = expandir_kmmax(
-            vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
-        )
-        if resultado:
-            fallback_info = info
-
-    # Expansão de AnoMax mesmo com só um parâmetro
-    if not resultado and anomax:
-        resultado, info = expandir_anomax(
+    # Tentativas progressivas ANTES do fallback
+    if not resultado:
+        resultado, info = tentativas_progressivas(
             vehicles, filtros_ativos, valormax, anomax, kmmax, ids_excluir
         )
         if resultado:
