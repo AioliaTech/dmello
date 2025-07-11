@@ -13,7 +13,7 @@ MAPEAMENTO_CATEGORIAS = {
 }
 
 FALLBACK_PRIORIDADE = [
-    "modelo",        # MAIS importante (removido por último)
+    "modelo",
     "categoria",
     "ValorMax",
     "cambio",
@@ -22,7 +22,7 @@ FALLBACK_PRIORIDADE = [
     "KmMax",
     "marca",
     "cor",
-    "combustivel"    # MENOS importante (removido primeiro)
+    "combustivel"
 ]
 
 def inferir_categoria_por_modelo(modelo_buscado):
@@ -108,14 +108,13 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
         if not vehicles_processados:
             return []
 
-    # Filtro de AnoMax (apenas para cima, incluindo o próprio)
+    # Filtro de AnoMax (agora é teto: só veículos até o ano informado, inclusive)
     if anomax:
         try:
             anomax_int = int(anomax)
-            ano_max = anomax_int + 2
             vehicles_processados = [
                 v for v in vehicles_processados
-                if v.get("ano") and anomax_int <= converter_ano(v.get("ano")) <= ano_max
+                if v.get("ano") and converter_ano(v.get("ano")) <= anomax_int
             ]
         except Exception:
             vehicles_processados = []
