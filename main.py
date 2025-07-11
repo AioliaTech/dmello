@@ -160,6 +160,9 @@ def filtrar_veiculos(vehicles, filtros, valormax=None, anomax=None, kmmax=None):
 def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade):
     filtros_base = dict(filtros)
     removidos = []
+    valormax_fallback = valormax
+    anomax_fallback = anomax
+    kmmax_fallback = kmmax
     while len(filtros_base) > 1:
         filtro_a_remover = None
         for chave in reversed(prioridade):
@@ -169,28 +172,35 @@ def fallback_progressivo(vehicles, filtros, valormax, anomax, kmmax, prioridade)
         if not filtro_a_remover:
             break
         # Antes de remover ValorMax, tenta as expansões
-        if filtro_a_remover == "ValorMax" and valormax:
+        if filtro_a_remover == "ValorMax" and valormax_fallback:
             filtros_base_temp = {k: v for k, v in filtros_base.items()}
             filtros_base_temp.pop("ValorMax")
             for i in range(1, 4):
-                novo_valormax = float(valormax) + (12000 * i)
+                novo_valormax = float(valormax_fallback) + (12000 * i)
                 resultado = filtrar_veiculos(
                     vehicles,
                     filtros_base_temp,
                     valormax=novo_valormax,
-                    anomax=anomax,
-                    kmmax=kmmax
+                    anomax=anomax_fallback,
+                    kmmax=kmmax_fallback
                 )
                 if resultado:
                     removidos.append(f"ValorMax_expandido_{novo_valormax}")
                     return resultado, removidos
-            # Se não encontrou, aí sim remove ValorMax normalmente
+            valormax_fallback = None
+        if filtro_a_remover == "AnoMax":
+            anomax_fallback = None
+        if filtro_a_remover == "KmMax":
+            kmmax_fallback = None
         filtros_base_temp = {k: v for k, v in filtros_base.items()}
         filtros_base_temp.pop(filtro_a_remover)
-        valormax_temp = valormax if filtro_a_remover != "ValorMax" else None
-        anomax_temp = anomax if filtro_a_remover != "AnoMax" else None
-        kmmax_temp = kmmax if filtro_a_remover != "KmMax" else None
-        resultado = filtrar_veiculos(vehicles, filtros_base_temp, valormax_temp, anomax_temp, kmmax_temp)
+        resultado = filtrar_veiculos(
+            vehicles,
+            filtros_base_temp,
+            valormax=valormax_fallback,
+            anomax=anomax_fallback,
+            kmmax=kmmax_fallback
+        )
         removidos.append(filtro_a_remover)
         if resultado:
             return resultado, removidos
@@ -240,7 +250,6 @@ def get_data(request: Request):
         "combustivel": query_params.get("combustivel")
     }
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
-    # Remove "ValorMax" dos filtros ativos para tentativas de expansão
     filtros_ativos_sem_valormax = dict(filtros_ativos)
     filtros_ativos_sem_valormax.pop("ValorMax", None)
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax, anomax, kmmax)
@@ -254,7 +263,7 @@ def get_data(request: Request):
 
     fallback_info = {}
 
-    # Tentativas de expandir o ValorMax em +12k até 3x
+    # Tentativas de expandir o ValorMax em +12k até 3x (ANTES do fallback)
     if not resultado and valormax and len(filtros_ativos) > 1:
         for i in range(1, 4):
             novo_valormax = float(valormax) + (12000 * i)
