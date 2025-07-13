@@ -167,11 +167,11 @@ class VehicleSearchEngine:
             except ValueError:
                 pass
         
-        # Filtro de ano - interpreta como teto e expande 3 anos para baixo
+        # Filtro de ano - interpreta como base e expande 3 anos para baixo, sem limite superior
         if anomax:
             try:
-                max_year = int(anomax)
-                min_year = max_year - 3  # Vai 3 anos para baixo
+                target_year = int(anomax)
+                min_year = target_year - 3  # Vai 3 anos para baixo
                 filtered_vehicles = [
                     v for v in filtered_vehicles
                     if self.convert_year(v.get("ano")) is not None and
