@@ -17,13 +17,13 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "KmMax",
-    "AnoMax",
-    "ValorMax",
     "categoria",
     "marca",
     "modelo"         # Mais importante (nunca remove sozinho)
 ]
+
+# Prioridade para parâmetros de range
+RANGE_FALLBACK = ["KmMax", "AnoMax", "ValorMax"]
 
 # Mapeamento de categorias por modelo
 MAPEAMENTO_CATEGORIAS = {
@@ -225,6 +225,43 @@ class VehicleSearchEngine:
         # Ordenação padrão: por preço decrescente
         return sorted(vehicles, key=lambda v: self.convert_price(v.get("preco")) or 0, reverse=True)
     
+    def get_expansion_info(self, valormax: Optional[str], anomax: Optional[str], 
+                          kmmax: Optional[str]) -> Dict[str, Any]:
+        """Retorna informações sobre expansões aplicadas"""
+        info = {}
+        
+        if valormax:
+            try:
+                info["price_expansion"] = {
+                    "original_max": float(valormax),
+                    "used_max": float(valormax) + 25000,
+                    "expansion": 25000
+                }
+            except ValueError:
+                pass
+        
+        if anomax:
+            try:
+                info["year_expansion"] = {
+                    "original_max": int(anomax),
+                    "used_min": int(anomax) - 3,
+                    "expansion_years": 3
+                }
+            except ValueError:
+                pass
+        
+        if kmmax:
+            try:
+                info["km_expansion"] = {
+                    "original_max": int(kmmax),
+                    "used_max": int(kmmax) + 30000,
+                    "expansion": 30000
+                }
+            except ValueError:
+                pass
+        
+        return info
+    
     def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
                             valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
                             excluded_ids: set) -> SearchResult:
@@ -242,39 +279,60 @@ class VehicleSearchEngine:
         
         if filtered_vehicles:
             sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax)
-            
-            # Monta informação sobre as expansões aplicadas
-            fallback_info = {}
-            if valormax:
-                fallback_info["price_expansion"] = {
-                    "original_max": float(valormax),
-                    "used_max": float(valormax) + 25000,
-                    "expansion": 25000
-                }
-            if anomax:
-                fallback_info["year_expansion"] = {
-                    "original_max": int(anomax),
-                    "used_min": int(anomax) - 3,
-                    "expansion_years": 3
-                }
-            if kmmax:
-                fallback_info["km_expansion"] = {
-                    "original_max": int(kmmax),
-                    "used_max": int(kmmax) + 30000,
-                    "expansion": 30000
-                }
+            expansion_info = self.get_expansion_info(valormax, anomax, kmmax)
             
             return SearchResult(
                 vehicles=sorted_vehicles,
                 total_found=len(sorted_vehicles),
-                fallback_info=fallback_info,
+                fallback_info=expansion_info,
                 removed_filters=[]
             )
         
-        # Segunda tentativa: remoção progressiva de filtros
+        # Fallback: tentar removendo parâmetros progressivamente
         current_filters = dict(filters)
+        current_valormax = valormax
+        current_anomax = anomax
+        current_kmmax = kmmax
         removed_filters = []
         
+        # Primeiro remove parâmetros de range
+        for range_param in RANGE_FALLBACK:
+            if range_param == "ValorMax" and current_valormax:
+                current_valormax = None
+                removed_filters.append(range_param)
+            elif range_param == "AnoMax" and current_anomax:
+                current_anomax = None
+                removed_filters.append(range_param)
+            elif range_param == "KmMax" and current_kmmax:
+                current_kmmax = None
+                removed_filters.append(range_param)
+            else:
+                continue
+            
+            # Tenta busca sem este parâmetro de range
+            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+            
+            if excluded_ids:
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if str(v.get("id")) not in excluded_ids
+                ]
+            
+            if filtered_vehicles:
+                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+                expansion_info = self.get_expansion_info(current_valormax, current_anomax, current_kmmax)
+                fallback_info = {"fallback": {"removed_filters": removed_filters}}
+                fallback_info.update(expansion_info)
+                
+                return SearchResult(
+                    vehicles=sorted_vehicles,
+                    total_found=len(sorted_vehicles),
+                    fallback_info=fallback_info,
+                    removed_filters=removed_filters
+                )
+        
+        # Depois remove filtros normais
         for filter_to_remove in FALLBACK_PRIORITY:
             if filter_to_remove not in current_filters:
                 continue
@@ -285,24 +343,12 @@ class VehicleSearchEngine:
                 continue
             
             # Remove o filtro atual
-            if filter_to_remove in ["ValorMax", "AnoMax", "KmMax"]:
-                # Para filtros de range, remove o parâmetro correspondente
-                test_valormax = valormax if filter_to_remove != "ValorMax" else None
-                test_anomax = anomax if filter_to_remove != "AnoMax" else None
-                test_kmmax = kmmax if filter_to_remove != "KmMax" else None
-                test_filters = current_filters
-                removed_filters.append(filter_to_remove)
-            else:
-                # Para outros filtros, remove do dict
-                test_filters = {k: v for k, v in current_filters.items() if k != filter_to_remove}
-                test_valormax = valormax
-                test_anomax = anomax
-                test_kmmax = kmmax
-                removed_filters.append(filter_to_remove)
+            current_filters = {k: v for k, v in current_filters.items() if k != filter_to_remove}
+            removed_filters.append(filter_to_remove)
             
             # Tenta busca sem o filtro removido
-            filtered_vehicles = self.apply_filters(vehicles, test_filters)
-            filtered_vehicles = self.apply_range_filters(filtered_vehicles, test_valormax, test_anomax, test_kmmax)
+            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
             
             if excluded_ids:
                 filtered_vehicles = [
@@ -311,28 +357,10 @@ class VehicleSearchEngine:
                 ]
             
             if filtered_vehicles:
-                sorted_vehicles = self.sort_vehicles(filtered_vehicles, test_valormax, test_anomax, test_kmmax)
-                
-                # Monta informação sobre fallback e expansões
+                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+                expansion_info = self.get_expansion_info(current_valormax, current_anomax, current_kmmax)
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
-                if test_valormax:
-                    fallback_info["price_expansion"] = {
-                        "original_max": float(test_valormax),
-                        "used_max": float(test_valormax) + 25000,
-                        "expansion": 25000
-                    }
-                if test_anomax:
-                    fallback_info["year_expansion"] = {
-                        "original_max": int(test_anomax),
-                        "used_min": int(test_anomax) - 3,
-                        "expansion_years": 3
-                    }
-                if test_kmmax:
-                    fallback_info["km_expansion"] = {
-                        "original_max": int(test_kmmax),
-                        "used_max": int(test_kmmax) + 30000,
-                        "expansion": 30000
-                    }
+                fallback_info.update(expansion_info)
                 
                 return SearchResult(
                     vehicles=sorted_vehicles,
@@ -340,9 +368,6 @@ class VehicleSearchEngine:
                     fallback_info=fallback_info,
                     removed_filters=removed_filters
                 )
-            
-            # Atualiza os filtros para a próxima iteração
-            current_filters = test_filters
         
         # Nenhum resultado encontrado
         return SearchResult(
