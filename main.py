@@ -308,7 +308,20 @@ class VehicleSearchEngine:
                 removed_filters=[]
             )
         
-        # Segunda tentativa: expansão de preço
+        # Segunda tentativa: expansão de ano
+        if anomax:
+            expanded_vehicles, expansion_info = self.try_expanded_year_search(
+                vehicles, original_filters, valormax, anomax, kmmax, excluded_ids
+            )
+            if expanded_vehicles:
+                return SearchResult(
+                    vehicles=expanded_vehicles,
+                    total_found=len(expanded_vehicles),
+                    fallback_info=expansion_info,
+                    removed_filters=[]
+                )
+        
+        # Terceira tentativa: expansão de preço
         if valormax:
             expanded_vehicles, expansion_info = self.try_expanded_price_search(
                 vehicles, original_filters, valormax, anomax, kmmax, excluded_ids
@@ -321,7 +334,7 @@ class VehicleSearchEngine:
                     removed_filters=[]
                 )
         
-        # Terceira tentativa: remoção progressiva de filtros
+        # Quarta tentativa: remoção progressiva de filtros
         current_filters = dict(original_filters)
         removed_filters = []
         
@@ -342,6 +355,23 @@ class VehicleSearchEngine:
             test_valormax = valormax if filter_to_remove != "ValorMax" else None
             test_anomax = anomax if filter_to_remove != "AnoMax" else None
             test_kmmax = kmmax if filter_to_remove != "KmMax" else None
+            
+            # Tenta busca com expansão de ano se ainda há limite de ano
+            if test_anomax:
+                expanded_vehicles, expansion_info = self.try_expanded_year_search(
+                    vehicles, test_filters, test_valormax, test_anomax, test_kmmax, excluded_ids
+                )
+                if expanded_vehicles:
+                    fallback_info = {
+                        "fallback": {"removed_filters": removed_filters},
+                        **expansion_info
+                    }
+                    return SearchResult(
+                        vehicles=expanded_vehicles,
+                        total_found=len(expanded_vehicles),
+                        fallback_info=fallback_info,
+                        removed_filters=removed_filters
+                    )
             
             # Tenta busca com expansão de preço se ainda há limite de valor
             if test_valormax:
