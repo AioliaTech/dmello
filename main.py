@@ -237,6 +237,80 @@ class VehicleSearchEngine:
         # Ordenação padrão: por preço decrescente
         return sorted(vehicles, key=lambda v: self.convert_price(v.get("preco")) or 0, reverse=True)
     
+    def try_expanded_year_search(self, vehicles: List[Dict], filters: Dict[str, str],
+                                valormax: Optional[str], anomax: str, kmmax: Optional[str],
+                                excluded_ids: set) -> Tuple[List[Dict], Dict[str, Any]]:
+        """Tenta busca com anos expandidos (diminui o limite de ano)"""
+        if not anomax:
+            return [], {}
+            
+        try:
+            base_year = int(anomax)
+            tested_years = []
+            
+            # Tenta decrementos de 1, 2, 3, 5 anos
+            for decrement in [1, 2, 3, 5]:
+                new_min_year = base_year - decrement
+                tested_years.append(new_min_year)
+                
+                # Busca com novo limite (aceita anos a partir do novo mínimo)
+                filtered_vehicles = self.apply_filters(vehicles, filters)
+                
+                # Aplica outros filtros de range
+                if valormax:
+                    try:
+                        max_price = float(valormax)
+                        filtered_vehicles = [
+                            v for v in filtered_vehicles
+                            if self.convert_price(v.get("preco")) is not None and
+                            self.convert_price(v.get("preco")) <= max_price
+                        ]
+                    except ValueError:
+                        pass
+                
+                if kmmax:
+                    try:
+                        max_km = int(kmmax) + 15000
+                        filtered_vehicles = [
+                            v for v in filtered_vehicles
+                            if self.convert_km(v.get("km")) is not None and
+                            self.convert_km(v.get("km")) <= max_km
+                        ]
+                    except ValueError:
+                        pass
+                
+                # Aplica filtro de ano expandido
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.convert_year(v.get("ano")) is not None and
+                    self.convert_year(v.get("ano")) >= new_min_year
+                ]
+                
+                # Remove IDs excluídos
+                if excluded_ids:
+                    filtered_vehicles = [
+                        v for v in filtered_vehicles
+                        if str(v.get("id")) not in excluded_ids
+                    ]
+                
+                if filtered_vehicles:
+                    sorted_vehicles = self.sort_vehicles(
+                        filtered_vehicles, valormax, anomax, kmmax
+                    )
+                    
+                    return sorted_vehicles, {
+                        "year_expansion": {
+                            "original_max": base_year,
+                            "used_min": new_min_year,
+                            "tested_values": tested_years
+                        }
+                    }
+            
+            return [], {}
+            
+        except ValueError:
+            return [], {}
+    
     def try_expanded_price_search(self, vehicles: List[Dict], filters: Dict[str, str],
                                  valormax: str, anomax: Optional[str], kmmax: Optional[str],
                                  excluded_ids: set) -> Tuple[List[Dict], Dict[str, Any]]:
@@ -532,7 +606,7 @@ def get_data(request: Request):
 @app.get("/api/health")
 def health_check():
     """Endpoint de verificação de saúde"""
-    return {"status": "healthy", "timestamp": "2025-07-12"}
+    return {"status": "healthy", "timestamp": "2025-07-13"}
 
 if __name__ == "__main__":
     import uvicorn
