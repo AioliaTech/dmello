@@ -225,43 +225,6 @@ class VehicleSearchEngine:
         # Ordenação padrão: por preço decrescente
         return sorted(vehicles, key=lambda v: self.convert_price(v.get("preco")) or 0, reverse=True)
     
-    def get_expansion_info(self, valormax: Optional[str], anomax: Optional[str], 
-                          kmmax: Optional[str]) -> Dict[str, Any]:
-        """Retorna informações sobre expansões aplicadas"""
-        info = {}
-        
-        if valormax:
-            try:
-                info["price_expansion"] = {
-                    "original_max": float(valormax),
-                    "used_max": float(valormax) + 25000,
-                    "expansion": 25000
-                }
-            except ValueError:
-                pass
-        
-        if anomax:
-            try:
-                info["year_expansion"] = {
-                    "original_max": int(anomax),
-                    "used_min": int(anomax) - 3,
-                    "expansion_years": 3
-                }
-            except ValueError:
-                pass
-        
-        if kmmax:
-            try:
-                info["km_expansion"] = {
-                    "original_max": int(kmmax),
-                    "used_max": int(kmmax) + 30000,
-                    "expansion": 30000
-                }
-            except ValueError:
-                pass
-        
-        return info
-    
     def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
                             valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
                             excluded_ids: set) -> SearchResult:
@@ -279,12 +242,11 @@ class VehicleSearchEngine:
         
         if filtered_vehicles:
             sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax)
-            expansion_info = self.get_expansion_info(valormax, anomax, kmmax)
             
             return SearchResult(
                 vehicles=sorted_vehicles,
                 total_found=len(sorted_vehicles),
-                fallback_info=expansion_info,
+                fallback_info={},
                 removed_filters=[]
             )
         
@@ -321,9 +283,7 @@ class VehicleSearchEngine:
             
             if filtered_vehicles:
                 sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
-                expansion_info = self.get_expansion_info(current_valormax, current_anomax, current_kmmax)
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
-                fallback_info.update(expansion_info)
                 
                 return SearchResult(
                     vehicles=sorted_vehicles,
@@ -358,9 +318,7 @@ class VehicleSearchEngine:
             
             if filtered_vehicles:
                 sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
-                expansion_info = self.get_expansion_info(current_valormax, current_anomax, current_kmmax)
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
-                fallback_info.update(expansion_info)
                 
                 return SearchResult(
                     vehicles=sorted_vehicles,
@@ -473,7 +431,7 @@ def get_data(request: Request):
         "total_encontrado": result.total_found
     }
     
-    # Adiciona informações de fallback se houver
+    # Adiciona informações de fallback apenas se houver filtros removidos
     if result.fallback_info:
         response_data.update(result.fallback_info)
     
