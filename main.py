@@ -16,18 +16,117 @@ FALLBACK_PRIORITY = [
     "cor",           # Menos importante
     "combustivel",
     "opcionais",
-    "marca",
     "cambio",
-    "modelo",
-    "categoria"         # Mais importante (nunca remove sozinho)
+    "categoria",
+    "marca",
+    "modelo"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
-RANGE_FALLBACK = ["KmMax", "AnoMax", "ValorMax"]
+RANGE_FALLBACK = ["CcMax", "KmMax", "AnoMax", "ValorMax"]
 
 # Mapeamento de categorias por modelo
 MAPEAMENTO_CATEGORIAS = {
-    # Adicione seu mapeamento aqui
+    # Hatchbacks
+    "gol": "hatch",
+    "polo": "hatch", 
+    "up": "hatch",
+    "fox": "hatch",
+    "fit": "hatch",
+    "city": "hatch",
+    "hb20": "hatch",
+    "i30": "hatch",
+    "march": "hatch",
+    "versa": "hatch",
+    "onix": "hatch",
+    "prisma": "hatch",
+    "ka": "hatch",
+    "fiesta": "hatch",
+    "focus": "hatch",
+    "208": "hatch",
+    "207": "hatch",
+    "206": "hatch",
+    "clio": "hatch",
+    "sandero": "hatch",
+    "logan": "hatch",
+    
+    # Sedans
+    "jetta": "sedan",
+    "passat": "sedan",
+    "civic": "sedan",
+    "accord": "sedan",
+    "corolla": "sedan",
+    "camry": "sedan",
+    "elantra": "sedan",
+    "azera": "sedan",
+    "sentra": "sedan",
+    "altima": "sedan",
+    "cruze": "sedan",
+    "cobalt": "sedan",
+    "fusion": "sedan",
+    "mondeo": "sedan",
+    "408": "sedan",
+    "508": "sedan",
+    "fluence": "sedan",
+    "megane": "sedan",
+    
+    # SUVs
+    "tiguan": "suv",
+    "amarok": "suv",
+    "touareg": "suv",
+    "crv": "suv",
+    "hrv": "suv",
+    "pilot": "suv",
+    "rav4": "suv",
+    "highlander": "suv",
+    "tucson": "suv",
+    "santa": "suv",
+    "creta": "suv",
+    "kicks": "suv",
+    "frontier": "suv",
+    "pathfinder": "suv",
+    "equinox": "suv",
+    "tahoe": "suv",
+    "ecosport": "suv",
+    "edge": "suv",
+    "explorer": "suv",
+    "2008": "suv",
+    "3008": "suv",
+    "5008": "suv",
+    "captur": "suv",
+    "duster": "suv",
+    "oroch": "suv",
+    
+    # Pickups
+    "saveiro": "pickup",
+    "strada": "pickup",
+    "toro": "pickup",
+    "hilux": "pickup",
+    "ranger": "pickup",
+    "s10": "pickup",
+    "montana": "pickup",
+    
+    # Motos
+    "biz": "moto",
+    "pop": "moto",
+    "fan": "moto",
+    "titan": "moto",
+    "cb": "moto",
+    "cbr": "moto",
+    "hornet": "moto",
+    "fazer": "moto",
+    "factor": "moto",
+    "crosser": "moto",
+    "lander": "moto",
+    "xt": "moto",
+    "gs": "moto",
+    "f": "moto",
+    "ninja": "moto",
+    "z": "moto",
+    "er": "moto",
+    "versys": "moto",
+    "duke": "moto",
+    "rc": "moto",
 }
 
 @dataclass
@@ -85,6 +184,51 @@ class VehicleSearchEngine:
             return int(cleaned)
         except (ValueError, TypeError):
             return None
+    
+    def convert_cc(self, cc_str: Any) -> Optional[float]:
+        """Converte string de cilindrada para float"""
+        if not cc_str:
+            return None
+        try:
+            # Se já é um número (float/int), retorna diretamente
+            if isinstance(cc_str, (int, float)):
+                return float(cc_str)
+            
+            # Se é string, limpa e converte
+            cleaned = str(cc_str).replace(",", ".").replace("L", "").replace("l", "").strip()
+            # Se o valor for menor que 10, provavelmente está em litros (ex: 1.0, 2.0)
+            # Converte para CC multiplicando por 1000
+            value = float(cleaned)
+            if value < 10:
+                return value * 1000
+            return value
+        except (ValueError, TypeError):
+            return None
+    
+    def find_category_by_model(self, model: str) -> Optional[str]:
+        """Encontra categoria baseada no modelo usando mapeamento"""
+        if not model:
+            return None
+            
+        # Normaliza o modelo para busca
+        normalized_model = self.normalize_text(model)
+        
+        # Busca exata primeiro
+        if normalized_model in MAPEAMENTO_CATEGORIAS:
+            return MAPEAMENTO_CATEGORIAS[normalized_model]
+        
+        # Busca parcial - verifica se alguma palavra do modelo está no mapeamento
+        model_words = normalized_model.split()
+        for word in model_words:
+            if len(word) >= 3 and word in MAPEAMENTO_CATEGORIAS:
+                return MAPEAMENTO_CATEGORIAS[word]
+        
+        # Busca por substring - verifica se o modelo contém alguma chave do mapeamento
+        for key, category in MAPEAMENTO_CATEGORIAS.items():
+            if key in normalized_model or normalized_model in key:
+                return category
+        
+        return None
     
     def split_multi_value(self, value: str) -> List[str]:
         """Divide valores múltiplos separados por vírgula"""
@@ -156,7 +300,7 @@ class VehicleSearchEngine:
         return filtered_vehicles
     
     def apply_range_filters(self, vehicles: List[Dict], valormax: Optional[str], 
-                          anomax: Optional[str], kmmax: Optional[str]) -> List[Dict]:
+                          anomax: Optional[str], kmmax: Optional[str], ccmax: Optional[str]) -> List[Dict]:
         """Aplica filtros de faixa com expansão automática"""
         filtered_vehicles = list(vehicles)
         
@@ -185,14 +329,48 @@ class VehicleSearchEngine:
             except ValueError:
                 pass
         
-        # Filtro de km máximo - expande automaticamente até 30k acima
+        # Filtro de km máximo - busca do menor até o teto com margem
         if kmmax:
             try:
-                max_km = int(kmmax) + 30000  # Adiciona 30k automaticamente
+                target_km = int(kmmax)
+                max_km_with_margin = target_km + 30000  # Adiciona 30k de margem
+                
+                # Filtra veículos que têm informação de KM
+                vehicles_with_km = [
+                    v for v in filtered_vehicles
+                    if self.convert_km(v.get("km")) is not None
+                ]
+                
+                if vehicles_with_km:
+                    # Encontra o menor KM disponível
+                    min_km_available = min(self.convert_km(v.get("km")) for v in vehicles_with_km)
+                    
+                    # Se o menor KM disponível é maior que o target, ancora no menor disponível
+                    if min_km_available > target_km:
+                        min_km_filter = min_km_available
+                    else:
+                        min_km_filter = 0  # Busca desde 0 se há KMs menores que o target
+                    
+                    # Aplica o filtro: do menor (ou âncora) até o máximo com margem
+                    filtered_vehicles = [
+                        v for v in filtered_vehicles
+                        if self.convert_km(v.get("km")) is not None and
+                        min_km_filter <= self.convert_km(v.get("km")) <= max_km_with_margin
+                    ]
+            except ValueError:
+                pass
+        
+        # Filtro de cilindrada - não expande, busca próximos do valor
+        if ccmax:
+            try:
+                target_cc = float(ccmax)
+                # Converte para CC se necessário (valores < 10 são assumidos como litros)
+                if target_cc < 10:
+                    target_cc *= 1000
+                
                 filtered_vehicles = [
                     v for v in filtered_vehicles
-                    if self.convert_km(v.get("km")) is not None and
-                    self.convert_km(v.get("km")) <= max_km
+                    if self.convert_cc(v.get("cilindrada")) is not None
                 ]
             except ValueError:
                 pass
@@ -200,16 +378,29 @@ class VehicleSearchEngine:
         return filtered_vehicles
     
     def sort_vehicles(self, vehicles: List[Dict], valormax: Optional[str], 
-                     anomax: Optional[str], kmmax: Optional[str]) -> List[Dict]:
+                     anomax: Optional[str], kmmax: Optional[str], ccmax: Optional[str]) -> List[Dict]:
         """Ordena veículos baseado nos filtros aplicados"""
         if not vehicles:
             return vehicles
         
-        # Prioridade 1: Se tem KmMax, ordena por KM crescente
+        # Prioridade 1: Se tem CcMax, ordena por proximidade da cilindrada
+        if ccmax:
+            try:
+                target_cc = float(ccmax)
+                # Converte para CC se necessário (valores < 10 são assumidos como litros)
+                if target_cc < 10:
+                    target_cc *= 1000
+                    
+                return sorted(vehicles, key=lambda v: 
+                    abs((self.convert_cc(v.get("cilindrada")) or 0) - target_cc))
+            except ValueError:
+                pass
+        
+        # Prioridade 2: Se tem KmMax, ordena por KM crescente
         if kmmax:
             return sorted(vehicles, key=lambda v: self.convert_km(v.get("km")) or float('inf'))
         
-        # Prioridade 2: Se tem ValorMax, ordena por proximidade do valor
+        # Prioridade 3: Se tem ValorMax, ordena por proximidade do valor
         if valormax:
             try:
                 target_price = float(valormax)
@@ -218,7 +409,7 @@ class VehicleSearchEngine:
             except ValueError:
                 pass
         
-        # Prioridade 3: Se tem AnoMax, ordena por proximidade do ano
+        # Prioridade 4: Se tem AnoMax, ordena por proximidade do ano
         if anomax:
             try:
                 target_year = int(anomax)
@@ -232,12 +423,12 @@ class VehicleSearchEngine:
     
     def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
                             valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
-                            excluded_ids: set) -> SearchResult:
+                            ccmax: Optional[str], excluded_ids: set) -> SearchResult:
         """Executa busca com fallback progressivo simplificado"""
         
         # Primeira tentativa: busca normal com expansão automática
         filtered_vehicles = self.apply_filters(vehicles, filters)
-        filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax)
+        filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
         
         if excluded_ids:
             filtered_vehicles = [
@@ -246,7 +437,7 @@ class VehicleSearchEngine:
             ]
         
         if filtered_vehicles:
-            sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax)
+            sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
             
             return SearchResult(
                 vehicles=sorted_vehicles,
@@ -260,11 +451,15 @@ class VehicleSearchEngine:
         current_valormax = valormax
         current_anomax = anomax
         current_kmmax = kmmax
+        current_ccmax = ccmax
         removed_filters = []
         
         # Primeiro remove parâmetros de range
         for range_param in RANGE_FALLBACK:
-            if range_param == "ValorMax" and current_valormax:
+            if range_param == "CcMax" and current_ccmax:
+                current_ccmax = None
+                removed_filters.append(range_param)
+            elif range_param == "ValorMax" and current_valormax:
                 current_valormax = None
                 removed_filters.append(range_param)
             elif range_param == "AnoMax" and current_anomax:
@@ -278,7 +473,7 @@ class VehicleSearchEngine:
             
             # Tenta busca sem este parâmetro de range
             filtered_vehicles = self.apply_filters(vehicles, current_filters)
-            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
             
             if excluded_ids:
                 filtered_vehicles = [
@@ -287,7 +482,7 @@ class VehicleSearchEngine:
                 ]
             
             if filtered_vehicles:
-                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
                 
                 return SearchResult(
@@ -307,13 +502,58 @@ class VehicleSearchEngine:
             if filter_to_remove == "modelo" and len(remaining_filters) == 1:
                 continue
             
-            # Remove o filtro atual
+            # SISTEMA ESPECIAL: Se está removendo 'modelo' e não há 'categoria', tenta mapear
+            if filter_to_remove == "modelo" and "categoria" not in current_filters:
+                model_value = current_filters.get("modelo")
+                if model_value:
+                    # Busca categoria baseada no modelo
+                    mapped_category = self.find_category_by_model(model_value)
+                    if mapped_category:
+                        # Remove modelo e adiciona categoria mapeada
+                        new_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
+                        new_filters["categoria"] = mapped_category
+                        removed_filters.append(f"modelo->categoria({mapped_category})")
+                        
+                        # Tenta busca com categoria mapeada
+                        filtered_vehicles = self.apply_filters(vehicles, new_filters)
+                        filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                        
+                        if excluded_ids:
+                            filtered_vehicles = [
+                                v for v in filtered_vehicles
+                                if str(v.get("id")) not in excluded_ids
+                            ]
+                        
+                        if filtered_vehicles:
+                            sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                            fallback_info = {
+                                "fallback": {
+                                    "removed_filters": removed_filters,
+                                    "model_to_category_mapping": {
+                                        "original_model": model_value,
+                                        "mapped_category": mapped_category
+                                    }
+                                }
+                            }
+                            
+                            return SearchResult(
+                                vehicles=sorted_vehicles,
+                                total_found=len(sorted_vehicles),
+                                fallback_info=fallback_info,
+                                removed_filters=removed_filters
+                            )
+                        
+                        # Se não encontrou com a categoria mapeada, continua o fallback normal
+                        current_filters = new_filters
+            
+            # Remove o filtro atual (fallback normal)
             current_filters = {k: v for k, v in current_filters.items() if k != filter_to_remove}
-            removed_filters.append(filter_to_remove)
+            if filter_to_remove != "modelo" or "categoria" in filters:  # Só adiciona se não foi o caso especial acima
+                removed_filters.append(filter_to_remove)
             
             # Tenta busca sem o filtro removido
             filtered_vehicles = self.apply_filters(vehicles, current_filters)
-            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
             
             if excluded_ids:
                 filtered_vehicles = [
@@ -322,7 +562,7 @@ class VehicleSearchEngine:
                 ]
             
             if filtered_vehicles:
-                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax)
+                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
                 
                 return SearchResult(
@@ -392,6 +632,7 @@ def get_data(request: Request):
     valormax = query_params.pop("ValorMax", None)
     anomax = query_params.pop("AnoMax", None)
     kmmax = query_params.pop("KmMax", None)
+    ccmax = query_params.pop("CcMax", None)
     simples = query_params.pop("simples", None)
     excluir = query_params.pop("excluir", None)
     
@@ -417,7 +658,7 @@ def get_data(request: Request):
     
     # Executa a busca com fallback
     result = search_engine.search_with_fallback(
-        vehicles, filters, valormax, anomax, kmmax, excluded_ids
+        vehicles, filters, valormax, anomax, kmmax, ccmax, excluded_ids
     )
     
     # Aplica modo simples se solicitado
