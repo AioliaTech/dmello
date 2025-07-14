@@ -231,7 +231,26 @@ class VehicleSearchEngine:
         
         return None
     
-    def split_multi_value(self, value: str) -> List[str]:
+    def model_exists_in_database(self, vehicles: List[Dict], model_query: str) -> bool:
+        """Verifica se um modelo existe no banco de dados usando fuzzy matching"""
+        if not model_query:
+        def split_multi_value(self, value: str) -> List[str]:
+        """Divide valores múltiplos separados por vírgula"""
+        if not value:
+            return []
+        return [v.strip() for v in str(value).split(',') if v.strip()]
+            
+        query_words = model_query.split()
+        
+        for vehicle in vehicles:
+            # Verifica em todos os campos fuzzy
+            for field in self.fuzzy_fields:
+                field_value = str(vehicle.get(field, ""))
+                if field_value:
+                    is_match, _ = self.fuzzy_match(query_words, field_value)
+                    if is_match:
+                        return True
+        return False
         """Divide valores múltiplos separados por vírgula"""
         if not value:
             return []
@@ -569,17 +588,76 @@ class VehicleSearchEngine:
                 debug_info=filter_debug
             )
         
-        # SISTEMA ESPECIAL: Se tem 'modelo' mas não tem 'categoria', tenta mapear modelo→categoria PRIMEIRO
-        if "modelo" in filters and "categoria" not in filters:
-            model_value = filters.get("modelo")
+        # VERIFICAÇÃO PRÉVIA: Se tem 'modelo', verifica se ele existe no banco
+        current_filters = dict(filters)
+        removed_filters = []
+        
+        if "modelo" in current_filters:
+            model_value = current_filters["modelo"]
+            model_exists = self.model_exists_in_database(vehicles, model_value)
+            print(f"DEBUG: Verificando se modelo '{model_value}' existe no banco: {model_exists}")
+            
+            if not model_exists:
+                print(f"DEBUG: Modelo '{model_value}' não existe no banco - removendo do filtro")
+                
+                # Se não tem categoria, tenta mapear modelo→categoria
+                if "categoria" not in current_filters:
+                    mapped_category = self.find_category_by_model(model_value)
+                    if mapped_category:
+                        print(f"DEBUG: Modelo '{model_value}' mapeado para categoria '{mapped_category}'")
+                        current_filters["categoria"] = mapped_category
+                        removed_filters.append(f"modelo({model_value})->categoria({mapped_category})")
+                    else:
+                        print(f"DEBUG: Nenhuma categoria encontrada para modelo '{model_value}'")
+                        removed_filters.append(f"modelo({model_value})")
+                else:
+                    # Se já tem categoria, só remove o modelo
+                    print(f"DEBUG: Categoria já definida, removendo apenas o modelo '{model_value}'")
+                    removed_filters.append(f"modelo({model_value})")
+                
+                # Remove o modelo dos filtros
+                current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
+                
+                print(f"DEBUG: Filtros após remoção de modelo inexistente: {current_filters}")
+                
+                # Tenta busca sem o modelo inexistente
+                if current_filters:  # Se ainda sobrou algum filtro
+                    filtered_vehicles, _ = self.apply_filters(vehicles, current_filters)
+                    filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+                    
+                    if excluded_ids:
+                        filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
+                    
+                    print(f"DEBUG: Resultado após remover modelo inexistente: {len(filtered_vehicles)} veículos")
+                    
+                    if filtered_vehicles:
+                        sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+                        fallback_info = {
+                            "fallback": {
+                                "removed_filters": removed_filters,
+                                "reason": "model_not_found_in_database"
+                            }
+                        }
+                        
+                        return SearchResult(
+                            vehicles=sorted_vehicles,
+                            total_found=len(sorted_vehicles),
+                            fallback_info=fallback_info,
+                            removed_filters=removed_filters,
+                            debug_info=filter_debug
+                        )
+        
+        # SISTEMA ESPECIAL: Se tem 'modelo' existente mas não tem 'categoria', tenta mapear modelo→categoria
+        if "modelo" in current_filters and "categoria" not in current_filters:
+            model_value = current_filters.get("modelo")
             if model_value:
-                print(f"DEBUG: SISTEMA ESPECIAL - Tentando mapear modelo '{model_value}' para categoria")
+                print(f"DEBUG: SISTEMA ESPECIAL - Tentando mapear modelo existente '{model_value}' para categoria")
                 mapped_category = self.find_category_by_model(model_value)
                 if mapped_category:
                     print(f"DEBUG: Modelo '{model_value}' mapeado para categoria '{mapped_category}'")
                     
                     # Cria novos filtros: remove modelo, adiciona categoria, mantém o resto
-                    mapped_filters = {k: v for k, v in filters.items() if k != "modelo"}
+                    mapped_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
                     mapped_filters["categoria"] = mapped_category
                     
                     print(f"DEBUG: Nova busca com filtros mapeados: {mapped_filters}")
@@ -620,14 +698,6 @@ class VehicleSearchEngine:
                         removed_filters = [f"modelo({model_value})->categoria({mapped_category})"]
                 else:
                     print(f"DEBUG: Nenhuma categoria encontrada para o modelo '{model_value}', continuando fallback normal")
-                    current_filters = dict(filters)
-                    removed_filters = []
-            else:
-                current_filters = dict(filters)
-                removed_filters = []
-        else:
-            current_filters = dict(filters)
-            removed_filters = []
         
         # Fallback normal: tentar removendo parâmetros progressivamente
         current_valormax = valormax
