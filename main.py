@@ -21,53 +21,76 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "modelo",
+    "categoria",
     "marca",
-    "categoria"         # Mais importante (nunca remove sozinho)
+    "modelo"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
 RANGE_FALLBACK = ["CcMax", "KmMax", "AnoMax", "ValorMax"]
 
-# Mapeamento de categorias por modelo
-# Mapeamento de categorias por modelo
-MAPEAMENTO_CATEGORIAS = {
-    # Hatchbacks
-    "gol": "hatch", "uno": "hatch", "palio": "hatch", "celta": "hatch", "fiesta": "hatch", "march": "hatch", "sandero": "hatch", "onix": "hatch", "hb20": "hatch", "i30": "hatch", "golf": "hatch", "polo": "hatch", "fox": "hatch", "up": "hatch", "fit": "hatch", "city": "hatch", "yaris": "hatch", "etios": "hatch", "clio": "hatch", "corsa": "hatch", "bravo": "hatch", "punto": "hatch", "208": "hatch", "argo": "hatch", "mobi": "hatch", "c3": "hatch", "picanto": "hatch", "stilo": "hatch", "206": "hatch", "207": "hatch", "c4 vtr": "hatch", "kwid": "hatch", "soul": "hatch", "agile": "hatch", "fusca": "hatch",
-    
-    # Sedans
-    "civic": "sedan", "corolla": "sedan", "sentra": "sedan", "jetta": "sedan", "voyage": "sedan", "siena": "sedan", "grand siena": "sedan", "cruze": "sedan", "cobalt": "sedan", "logan": "sedan", "fluence": "sedan", "cerato": "sedan", "elantra": "sedan", "virtus": "sedan", "accord": "sedan", "altima": "sedan", "fusion": "sedan", "mazda3": "sedan", "mazda6": "sedan", "passat": "sedan", "vectra sedan": "sedan", "classic": "sedan", "cronos": "sedan", "linea": "sedan", "408": "sedan", "508": "sedan", "c4 pallas": "sedan", "bora": "sedan", "hb20s": "sedan", "lancer": "sedan", "camry": "sedan", "onix plus": "sedan", "megane": "sedan", "azera": "sedan", "mondeo": "sedan",
-    
-    # Modelos com multiplas categorias (hatch e sedan)
-    "focus": "hatch,sedan", "astra": "hatch,sedan", "sonic": "hatch,sedan", "c4": "hatch,sedan", "ka": "hatch,sedan", "versa": "hatch,sedan", "prisma": "hatch,sedan", "polo": "hatch,sedan", "city": "hatch,sedan",
-    
-    # SUVs
-    "duster": "suv", "ecosport": "suv", "hrv": "suv", "hr-v": "suv", "compass": "suv", "renegade": "suv", "tracker": "suv", "kicks": "suv", "captur": "suv", "creta": "suv", "tucson": "suv", "santa fe": "suv", "santa": "suv", "sorento": "suv", "sportage": "suv", "outlander": "suv", "asx": "suv", "pajero": "suv", "tr4": "suv", "aircross": "suv", "tiguan": "suv", "t-cross": "suv", "tcross": "suv", "touareg": "suv", "rav4": "suv", "cx5": "suv", "forester": "suv", "wrv": "suv", "land cruiser": "suv", "cherokee": "suv", "grand cherokee": "suv", "xtrail": "suv", "x-trail": "suv", "murano": "suv", "cx9": "suv", "edge": "suv", "trailblazer": "suv", "pulse": "suv", "fastback": "suv", "territory": "suv", "bronco sport": "suv", "2008": "suv", "3008": "suv", "5008": "suv", "c4 cactus": "suv", "taos": "suv", "crv": "suv", "cr-v": "suv", "corolla cross": "suv", "sw4": "suv", "pajero sport": "suv", "commander": "suv", "xv": "suv", "xc60": "suv", "tiggo 5x": "suv", "haval h6": "suv", "nivus": "suv", "pilot": "suv", "highlander": "suv", "equinox": "suv", "tahoe": "suv", "explorer": "suv", "pathfinder": "suv", "frontier suv": "suv",
-    
-    # Caminhonetes
-    "hilux": "caminhonete", "ranger": "caminhonete", "s10": "caminhonete", "l200": "caminhonete", "triton": "caminhonete", "toro": "caminhonete", "frontier": "caminhonete", "amarok": "caminhonete", "gladiator": "caminhonete", "maverick": "caminhonete", "colorado": "caminhonete", "dakota": "caminhonete", "montana (nova)": "caminhonete", "f-250": "caminhonete", "f250": "caminhonete", "courier (pickup)": "caminhonete", "hoggar": "caminhonete", "ram 1500": "caminhonete",
-    
-    # Utilitarios
-    "saveiro": "utilitario", "strada": "utilitario", "montana": "utilitario", "oroch": "utilitario", "kangoo": "utilitario", "partner": "utilitario", "doblo": "utilitario", "fiorino": "utilitario", "berlingo": "utilitario", "express": "utilitario", "combo": "utilitario", "kombi": "utilitario", "doblo cargo": "utilitario", "kangoo express": "utilitario",
-    
-    # Furgoes
-    "master": "furgao", "sprinter": "furgao", "ducato": "furgao", "daily": "furgao", "jumper": "furgao", "boxer": "furgao", "trafic": "furgao", "transit": "furgao", "vito": "furgao", "expert (furgao)": "furgao", "jumpy (furgao)": "furgao", "scudo (furgao)": "furgao",
-    
-    # Coupes
-    "camaro": "coupe", "mustang": "coupe", "tt": "coupe", "supra": "coupe", "370z": "coupe", "rx8": "coupe", "challenger": "coupe", "corvette": "coupe", "veloster": "coupe", "cerato koup": "coupe", "clk coupe": "coupe", "a5 coupe": "coupe", "gt86": "coupe", "rcz": "coupe", "brz": "coupe",
-    
-    # Conversiveis
-    "z4": "conversivel", "boxster": "conversivel", "miata": "conversivel", "beetle cabriolet": "conversivel", "slk": "conversivel", "911 cabrio": "conversivel", "tt roadster": "conversivel", "a5 cabrio": "conversivel", "mini cabrio": "conversivel", "206 cc": "conversivel", "eos": "conversivel",
-    
-    # Minivans
-    "spin": "minivan", "livina": "minivan", "caravan": "minivan", "touran": "minivan", "sharan": "minivan", "zafira": "minivan", "picasso": "minivan", "grand c4": "minivan", "meriva": "minivan", "scenic": "minivan", "xsara picasso": "minivan", "carnival": "minivan", "idea": "minivan",
-    
-    # Station wagons
-    "parati": "station wagon", "quantum": "station wagon", "spacefox": "station wagon", "golf variant": "station wagon", "palio weekend": "station wagon", "astra sw": "station wagon", "206 sw": "station wagon", "a4 avant": "station wagon", "fielder": "station wagon",
-    
-    # Off-road
-    "wrangler": "off-road", "troller": "off-road", "defender": "off-road", "bronco": "off-road", "samurai": "off-road", "jimny": "off-road", "land cruiser": "off-road", "grand vitara": "off-road", "jimny sierra": "off-road", "bandeirante (ate 2001)": "off-road",
-}
+# Mapeamento de categorias por modelo - Organizado por categoria
+MAPEAMENTO_CATEGORIAS = {}
+
+# Hatch apenas
+hatch_models = ["gol", "uno", "palio", "celta", "march", "sandero", "i30", "golf", "fox", "up", "fit", "etios", "bravo", "punto", "208", "argo", "mobi", "c3", "picanto", "stilo", "c4 vtr", "kwid", "soul", "agile", "fusca"]
+for model in hatch_models:
+    MAPEAMENTO_CATEGORIAS[model] = "hatch"
+
+# Sedan apenas
+sedan_models = ["sentra", "jetta", "voyage", "siena", "grand siena", "cobalt", "logan", "fluence", "cerato", "elantra", "virtus", "accord", "altima", "fusion", "mazda6", "passat", "vectra sedan", "classic", "cronos", "linea", "408", "508", "c4 pallas", "bora", "hb20s", "lancer", "camry", "onix plus", "azera", "mondeo"]
+for model in sedan_models:
+    MAPEAMENTO_CATEGORIAS[model] = "sedan"
+
+# Hatch e Sedan (modelos que existem nas duas versoes)
+hatch_sedan_models = ["onix", "hb20", "yaris", "city", "audi_a3", "audi a3", "mercedes_a_class", "mercedes a class", "mazda3", "corolla", "civic", "impreza", "focus", "fiesta", "escort", "corsa", "astra", "vectra", "chevette", "monza", "sonic", "cruze", "clio", "megane", "206", "207", "307", "tiida", "accent", "rio", "swift", "baleno", "ka", "versa", "prisma", "polo", "c4"]
+for model in hatch_sedan_models:
+    MAPEAMENTO_CATEGORIAS[model] = "hatch,sedan"
+
+# SUV
+suv_models = ["duster", "ecosport", "hrv", "hr-v", "compass", "renegade", "tracker", "kicks", "captur", "creta", "tucson", "santa fe", "santa", "sorento", "sportage", "outlander", "asx", "pajero", "tr4", "aircross", "tiguan", "t-cross", "tcross", "touareg", "rav4", "cx5", "forester", "wrv", "land cruiser", "cherokee", "grand cherokee", "xtrail", "x-trail", "murano", "cx9", "edge", "trailblazer", "pulse", "fastback", "territory", "bronco sport", "2008", "3008", "5008", "c4 cactus", "taos", "crv", "cr-v", "corolla cross", "sw4", "pajero sport", "commander", "xv", "xc60", "tiggo 5x", "haval h6", "nivus", "pilot", "highlander", "equinox", "tahoe", "explorer", "pathfinder", "frontier suv"]
+for model in suv_models:
+    MAPEAMENTO_CATEGORIAS[model] = "suv"
+
+# Caminhonete
+caminhonete_models = ["hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "gladiator", "maverick", "colorado", "dakota", "montana (nova)", "f-250", "f250", "courier (pickup)", "hoggar", "ram 1500"]
+for model in caminhonete_models:
+    MAPEAMENTO_CATEGORIAS[model] = "caminhonete"
+
+# Utilitario
+utilitario_models = ["saveiro", "strada", "montana", "oroch", "kangoo", "partner", "doblo", "fiorino", "berlingo", "express", "combo", "kombi", "doblo cargo", "kangoo express"]
+for model in utilitario_models:
+    MAPEAMENTO_CATEGORIAS[model] = "utilitario"
+
+# Furgao
+furgao_models = ["master", "sprinter", "ducato", "daily", "jumper", "boxer", "trafic", "transit", "vito", "expert (furgao)", "jumpy (furgao)", "scudo (furgao)"]
+for model in furgao_models:
+    MAPEAMENTO_CATEGORIAS[model] = "furgao"
+
+# Coupe
+coupe_models = ["camaro", "mustang", "tt", "supra", "370z", "rx8", "challenger", "corvette", "veloster", "cerato koup", "clk coupe", "a5 coupe", "gt86", "rcz", "brz"]
+for model in coupe_models:
+    MAPEAMENTO_CATEGORIAS[model] = "coupe"
+
+# Conversivel
+conversivel_models = ["z4", "boxster", "miata", "beetle cabriolet", "slk", "911 cabrio", "tt roadster", "a5 cabrio", "mini cabrio", "206 cc", "eos"]
+for model in conversivel_models:
+    MAPEAMENTO_CATEGORIAS[model] = "conversivel"
+
+# Minivan
+minivan_models = ["spin", "livina", "caravan", "touran", "sharan", "zafira", "picasso", "grand c4", "meriva", "scenic", "xsara picasso", "carnival", "idea"]
+for model in minivan_models:
+    MAPEAMENTO_CATEGORIAS[model] = "minivan"
+
+# Station Wagon
+station_wagon_models = ["parati", "quantum", "spacefox", "golf variant", "palio weekend", "astra sw", "206 sw", "a4 avant", "fielder"]
+for model in station_wagon_models:
+    MAPEAMENTO_CATEGORIAS[model] = "station wagon"
+
+# Off-road
+offroad_models = ["wrangler", "troller", "defender", "bronco", "samurai", "jimny", "land cruiser", "grand vitara", "jimny sierra", "bandeirante (ate 2001)"]
+for model in offroad_models:
+    MAPEAMENTO_CATEGORIAS[model] = "off-road"
 
 @dataclass
 class SearchResult:
@@ -711,6 +734,7 @@ def get_data(request: Request):
                 if isinstance(fotos, list):
                     vehicle["fotos"] = fotos[:1] if fotos else []
                 # Remove opcionais
+                vehicle.pop("opcionais", None)
         
         return JSONResponse(content={
             "resultados": limited_vehicles,
