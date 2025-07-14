@@ -16,10 +16,10 @@ FALLBACK_PRIORITY = [
     "cor",           # Menos importante
     "combustivel",
     "opcionais",
-    "marca",
-    "modelo",
     "cambio",
-    "categoria"         # Mais importante (nunca remove sozinho)
+    "categoria",
+    "marca",
+    "modelo"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
@@ -56,6 +56,11 @@ class VehicleSearchEngine:
         if not price_str:
             return None
         try:
+            # Se já é um número (float/int), retorna diretamente
+            if isinstance(price_str, (int, float)):
+                return float(price_str)
+            
+            # Se é string, limpa e converte
             cleaned = str(price_str).replace(",", "").replace("R$", "").replace(".", "").strip()
             return float(cleaned) / 100 if len(cleaned) > 2 else float(cleaned)
         except (ValueError, TypeError):
