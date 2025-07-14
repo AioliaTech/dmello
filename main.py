@@ -558,13 +558,82 @@ class VehicleSearchEngine:
         
         print("DEBUG: Iniciando fallback...")
         
-        # Fallback: tentar removendo parâmetros progressivamente
-        current_filters = dict(filters)
+        # REGRA ESPECIAL: Se só tem 1 filtro e NÃO é 'modelo', não faz fallback
+        if len(filters) == 1 and "modelo" not in filters:
+            print("DEBUG: Apenas 1 filtro ativo (não-modelo) - não faz fallback para evitar retornar estoque inteiro")
+            return SearchResult(
+                vehicles=[],
+                total_found=0,
+                fallback_info={"no_fallback_reason": "single_filter_not_model"},
+                removed_filters=[],
+                debug_info=filter_debug
+            )
+        
+        # SISTEMA ESPECIAL: Se tem 'modelo' mas não tem 'categoria', tenta mapear modelo→categoria PRIMEIRO
+        if "modelo" in filters and "categoria" not in filters:
+            model_value = filters.get("modelo")
+            if model_value:
+                print(f"DEBUG: SISTEMA ESPECIAL - Tentando mapear modelo '{model_value}' para categoria")
+                mapped_category = self.find_category_by_model(model_value)
+                if mapped_category:
+                    print(f"DEBUG: Modelo '{model_value}' mapeado para categoria '{mapped_category}'")
+                    
+                    # Cria novos filtros: remove modelo, adiciona categoria, mantém o resto
+                    mapped_filters = {k: v for k, v in filters.items() if k != "modelo"}
+                    mapped_filters["categoria"] = mapped_category
+                    
+                    print(f"DEBUG: Nova busca com filtros mapeados: {mapped_filters}")
+                    
+                    # Refaz a busca completa com os filtros mapeados e todos os ranges originais
+                    filtered_vehicles, _ = self.apply_filters(vehicles, mapped_filters)
+                    filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+                    
+                    if excluded_ids:
+                        filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
+                    
+                    print(f"DEBUG: Resultado com categoria mapeada: {len(filtered_vehicles)} veículos")
+                    
+                    if filtered_vehicles:
+                        sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+                        fallback_info = {
+                            "fallback": {
+                                "model_to_category_mapping": {
+                                    "original_model": model_value,
+                                    "mapped_category": mapped_category,
+                                    "action": "substituted_model_with_category"
+                                }
+                            }
+                        }
+                        
+                        return SearchResult(
+                            vehicles=sorted_vehicles,
+                            total_found=len(sorted_vehicles),
+                            fallback_info=fallback_info,
+                            removed_filters=[f"modelo({model_value})->categoria({mapped_category})"],
+                            debug_info=filter_debug
+                        )
+                    else:
+                        # Se a categoria mapeada também não trouxe resultados, continua com fallback normal
+                        print(f"DEBUG: Categoria mapeada '{mapped_category}' também não trouxe resultados, continuando fallback...")
+                        # Atualiza filtros para continuar o fallback com a categoria
+                        current_filters = mapped_filters
+                        removed_filters = [f"modelo({model_value})->categoria({mapped_category})"]
+                else:
+                    print(f"DEBUG: Nenhuma categoria encontrada para o modelo '{model_value}', continuando fallback normal")
+                    current_filters = dict(filters)
+                    removed_filters = []
+            else:
+                current_filters = dict(filters)
+                removed_filters = []
+        else:
+            current_filters = dict(filters)
+            removed_filters = []
+        
+        # Fallback normal: tentar removendo parâmetros progressivamente
         current_valormax = valormax
         current_anomax = anomax
         current_kmmax = kmmax
         current_ccmax = ccmax
-        removed_filters = []
         
         # Primeiro remove parâmetros de range
         for range_param in RANGE_FALLBACK:
@@ -611,102 +680,63 @@ class VehicleSearchEngine:
                     debug_info=filter_debug
                 )
         
-        # Depois remove filtros normais
-        for filter_to_remove in FALLBACK_PRIORITY:
-            if filter_to_remove not in current_filters:
-                continue
+        # SISTEMA ESPECIAL PARA MODELOS NÃO ENCONTRADOS
+        # Se chegou até aqui e o único filtro é 'modelo', tenta estratégias inteligentes
+        if len(current_filters) == 1 and "modelo" in current_filters:
+            model_value = current_filters["modelo"]
+            print(f"DEBUG: SISTEMA ESPECIAL - Modelo '{model_value}' não encontrado, tentando estratégias inteligentes...")
+            
+            # Estratégia 1: Mapear modelo para marca (ex: fiesta -> ford)
+            model_to_brand = {
+                "fiesta": "ford",
+                "focus": "ford", 
+                "ka": "ford",
+                "ecosport": "ford",
+                "ranger": "ford",
+                "fusion": "ford",
+                "edge": "ford",
+                "gol": "volkswagen",
+                "polo": "volkswagen",
+                "jetta": "volkswagen",
+                "tiguan": "volkswagen",
+                "passat": "volkswagen",
+                "up": "volkswagen",
+                "fox": "volkswagen",
+                "amarok": "volkswagen",
+                "civic": "honda",
+                "fit": "honda",
+                "city": "honda",
+                "crv": "honda",
+                "hrv": "honda",
+                "accord": "honda",
+                "corolla": "toyota",
+                "camry": "toyota",
+                "rav4": "toyota",
+                "hilux": "toyota",
+                "highlander": "toyota",
+                "onix": "chevrolet",
+                "cruze": "chevrolet",
+                "prisma": "chevrolet",
+                "cobalt": "chevrolet",
+                "equinox": "chevrolet",
+                "s10": "chevrolet",
+                "montana": "chevrolet",
+                "tahoe": "chevrolet"
+            }
+            
+            normalized_model = self.normalize_text(model_value)
+            if normalized_model in model_to_brand:
+                target_brand = model_to_brand[normalized_model]
+                print(f"DEBUG: Tentando buscar por marca '{target_brand}' baseado no modelo '{model_value}'")
                 
-            print(f"DEBUG: Tentando remover filtro: {filter_to_remove}")
-            
-            # Nunca remove 'modelo' se for o único filtro restante
-            remaining_filters = [k for k, v in current_filters.items() if v]
-            if filter_to_remove == "modelo" and len(remaining_filters) == 1:
-                print(f"DEBUG: Pulando remoção de 'modelo' pois é o único filtro restante")
-                continue
-            
-            # SISTEMA ESPECIAL: Se está removendo 'modelo' e não há 'categoria', tenta mapear
-            if filter_to_remove == "modelo" and "categoria" not in current_filters:
-                model_value = current_filters.get("modelo")
-                if model_value:
-                    print(f"DEBUG: Tentando mapear modelo '{model_value}' para categoria")
-                    # Busca categoria baseada no modelo
-                    mapped_category = self.find_category_by_model(model_value)
-                    if mapped_category:
-                        print(f"DEBUG: Modelo mapeado para categoria: {mapped_category}")
-                        # Remove modelo e adiciona categoria mapeada
-                        new_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
-                        new_filters["categoria"] = mapped_category
-                        removed_filters.append(f"modelo->categoria({mapped_category})")
-                        
-                        # Tenta busca com categoria mapeada
-                        filtered_vehicles, _ = self.apply_filters(vehicles, new_filters)
-                        filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                        
-                        if excluded_ids:
-                            filtered_vehicles = [
-                                v for v in filtered_vehicles
-                                if str(v.get("id")) not in excluded_ids
-                            ]
-                        
-                        print(f"DEBUG: Resultado com categoria mapeada: {len(filtered_vehicles)} veículos")
-                        
-                        if filtered_vehicles:
-                            sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                            fallback_info = {
-                                "fallback": {
-                                    "removed_filters": removed_filters,
-                                    "model_to_category_mapping": {
-                                        "original_model": model_value,
-                                        "mapped_category": mapped_category
-                                    }
-                                }
-                            }
-                            
-                            return SearchResult(
-                                vehicles=sorted_vehicles,
-                                total_found=len(sorted_vehicles),
-                                fallback_info=fallback_info,
-                                removed_filters=removed_filters,
-                                debug_info=filter_debug
-                            )
-                        
-                        # Se não encontrou com a categoria mapeada, continua o fallback normal
-                        current_filters = new_filters
-                        continue  # Pula para próximo filtro sem adicionar 'modelo' nos removed_filters
-                    else:
-                        print(f"DEBUG: Nenhuma categoria encontrada para o modelo '{model_value}'")
-            
-            # Remove o filtro atual (fallback normal)
-            current_filters = {k: v for k, v in current_filters.items() if k != filter_to_remove}
-            removed_filters.append(filter_to_remove)
-            
-            print(f"DEBUG: Removido filtro '{filter_to_remove}', filtros restantes: {current_filters}")
-            
-            # Tenta busca sem o filtro removido
-            filtered_vehicles, _ = self.apply_filters(vehicles, current_filters)
-            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-            
-            if excluded_ids:
-                filtered_vehicles = [
-                    v for v in filtered_vehicles
-                    if str(v.get("id")) not in excluded_ids
-                ]
-            
-            print(f"DEBUG: Resultado após remover '{filter_to_remove}': {len(filtered_vehicles)} veículos")
-            
-            if filtered_vehicles:
-                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                fallback_info = {"fallback": {"removed_filters": removed_filters}}
+                brand_filters = {"marca": target_brand}
+                filtered_vehicles, _ = self.apply_filters(vehicles, brand_filters)
+                filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
                 
-                return SearchResult(
-                    vehicles=sorted_vehicles,
-                    total_found=len(sorted_vehicles),
-                    fallback_info=fallback_info,
-                    removed_filters=removed_filters,
-                    debug_info=filter_debug
-                )
-        
-        print("DEBUG: Nenhum resultado encontrado mesmo com fallback")
+                if excluded_ids:
+                    filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
+                
+                
         
         # Nenhum resultado encontrado
         return SearchResult(
