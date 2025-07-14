@@ -165,12 +165,6 @@ def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
                                 fallback_info=fallback_info,
                                 removed_filters=removed_filters,
                                 debug_info=debug_info
-                            )(
-                                vehicles=sorted_vehicles,
-                                total_found=len(sorted_vehicles),
-                                fallback_info=fallback_info,
-                                removed_filters=removed_filters,
-                                debug_info=debug_info
                             )
                         
                         # Se não encontrou com categoria + ranges originais, 
