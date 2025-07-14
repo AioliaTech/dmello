@@ -21,9 +21,9 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "categoria",
+    "modelo",
     "marca",
-    "modelo"         # Mais importante (nunca remove sozinho)
+    "categoria"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
@@ -775,7 +775,6 @@ def get_data(request: Request):
                 if isinstance(fotos, list):
                     vehicle["fotos"] = fotos[:1] if fotos else []
                 # Remove opcionais
-                vehicle.pop("opcionais", None)
         
         return JSONResponse(content={
             "resultados": limited_vehicles,
