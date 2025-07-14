@@ -6,10 +6,14 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from xml_fetcher import fetch_and_convert_xml
 import json
 import os
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
 app = FastAPI()
+
+# Arquivo para armazenar status da última atualização
+STATUS_FILE = "last_update_status.json"
 
 # Configuração de prioridades para fallback (do menos importante para o mais importante)
 FALLBACK_PRIORITY = [
@@ -462,7 +466,7 @@ class VehicleSearchEngine:
             sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
             
             return SearchResult(
-                vehicles=sorted_vehicles,
+                vehicles=sorted_vehicles[:6],  # Limita a 6 resultados
                 total_found=len(sorted_vehicles),
                 fallback_info={},
                 removed_filters=[]
@@ -519,7 +523,7 @@ class VehicleSearchEngine:
                         }
                         
                         return SearchResult(
-                            vehicles=sorted_vehicles,
+                            vehicles=sorted_vehicles[:6],  # Limita a 6 resultados
                             total_found=len(sorted_vehicles),
                             fallback_info=fallback_info,
                             removed_filters=removed_filters
@@ -563,7 +567,7 @@ class VehicleSearchEngine:
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
                 
                 return SearchResult(
-                    vehicles=sorted_vehicles,
+                    vehicles=sorted_vehicles[:6],  # Limita a 6 resultados
                     total_found=len(sorted_vehicles),
                     fallback_info=fallback_info,
                     removed_filters=removed_filters
@@ -598,7 +602,7 @@ class VehicleSearchEngine:
                 fallback_info = {"fallback": {"removed_filters": removed_filters}}
                 
                 return SearchResult(
-                    vehicles=sorted_vehicles,
+                    vehicles=sorted_vehicles[:6],  # Limita a 6 resultados
                     total_found=len(sorted_vehicles),
                     fallback_info=fallback_info,
                     removed_filters=removed_filters
@@ -615,13 +619,68 @@ class VehicleSearchEngine:
 # Instância global do motor de busca
 search_engine = VehicleSearchEngine()
 
+def save_update_status(success: bool, message: str = "", vehicle_count: int = 0):
+    """Salva o status da última atualização"""
+    status = {
+        "timestamp": datetime.now().isoformat(),
+        "success": success,
+        "message": message,
+        "vehicle_count": vehicle_count
+    }
+    
+    try:
+        with open(STATUS_FILE, "w", encoding="utf-8") as f:
+            json.dump(status, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Erro ao salvar status: {e}")
+
+def get_update_status() -> Dict:
+    """Recupera o status da última atualização"""
+    try:
+        if os.path.exists(STATUS_FILE):
+            with open(STATUS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Erro ao ler status: {e}")
+    
+    return {
+        "timestamp": None,
+        "success": False,
+        "message": "Nenhuma atualização registrada",
+        "vehicle_count": 0
+    }
+
+def wrapped_fetch_and_convert_xml():
+    """Wrapper para fetch_and_convert_xml com logging de status"""
+    try:
+        print("Iniciando atualização dos dados...")
+        fetch_and_convert_xml()
+        
+        # Verifica quantos veículos foram carregados
+        vehicle_count = 0
+        if os.path.exists("data.json"):
+            try:
+                with open("data.json", "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    vehicle_count = len(data.get("veiculos", []))
+            except:
+                pass
+        
+        save_update_status(True, "Dados atualizados com sucesso", vehicle_count)
+        print(f"Atualização concluída: {vehicle_count} veículos carregados")
+        
+    except Exception as e:
+        error_message = f"Erro na atualização: {str(e)}"
+        save_update_status(False, error_message)
+        print(error_message)
+
 @app.on_event("startup")
 def schedule_tasks():
     """Agenda tarefas de atualização de dados"""
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    scheduler.add_job(fetch_and_convert_xml, "cron", hour="0,12")
+    scheduler.add_job(wrapped_fetch_and_convert_xml, "cron", hour="0,12")
     scheduler.start()
-    fetch_and_convert_xml()
+    wrapped_fetch_and_convert_xml()  # Executa uma vez na inicialização
 
 @app.get("/api/data")
 def get_data(request: Request):
@@ -726,6 +785,34 @@ def get_data(request: Request):
 def health_check():
     """Endpoint de verificação de saúde"""
     return {"status": "healthy", "timestamp": "2025-07-13"}
+
+@app.get("/api/status")
+def get_status():
+    """Endpoint para verificar status da última atualização dos dados"""
+    status = get_update_status()
+    
+    # Informações adicionais sobre os arquivos
+    data_file_exists = os.path.exists("data.json")
+    data_file_size = 0
+    data_file_modified = None
+    
+    if data_file_exists:
+        try:
+            stat = os.stat("data.json")
+            data_file_size = stat.st_size
+            data_file_modified = datetime.fromtimestamp(stat.st_mtime).isoformat()
+        except:
+            pass
+    
+    return {
+        "last_update": status,
+        "data_file": {
+            "exists": data_file_exists,
+            "size_bytes": data_file_size,
+            "modified_at": data_file_modified
+        },
+        "current_time": datetime.now().isoformat()
+    }
 
 if __name__ == "__main__":
     import uvicorn
