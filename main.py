@@ -1,4 +1,208 @@
-from fastapi import FastAPI, Request
+def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
+                            valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
+                            ccmax: Optional[str], excluded_ids: set) -> SearchResult:
+        """Executa busca com fallback progressivo simplificado"""
+        
+        debug_info = {
+            "initial_filters": filters.copy(),
+            "range_filters": {"valormax": valormax, "anomax": anomax, "kmmax": kmmax, "ccmax": ccmax},
+            "total_vehicles": len(vehicles),
+            "steps": []
+        }
+        
+        # Primeira tentativa: busca normal com expansão automática
+        filtered_vehicles = self.apply_filters(vehicles, filters)
+        debug_info["steps"].append(f"apply_filters: {len(filtered_vehicles)} veículos")
+        
+        filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+        debug_info["steps"].append(f"apply_range_filters: {len(filtered_vehicles)} veículos")
+        
+        if excluded_ids:
+            filtered_vehicles = [
+                v for v in filtered_vehicles
+                if str(v.get("id")) not in excluded_ids
+            ]
+            debug_info["steps"].append(f"após exclusões: {len(filtered_vehicles)} veículos")
+        
+        if filtered_vehicles:
+            sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+            debug_info["steps"].append(f"sucesso na primeira tentativa: {len(sorted_vehicles)} veículos")
+            
+            return SearchResult(
+                vehicles=sorted_vehicles,
+                total_found=len(sorted_vehicles),
+                fallback_info={},
+                removed_filters=[],
+                debug_info=debug_info
+            )
+        
+        debug_info["steps"].append("iniciando fallback...")
+        
+        # Fallback: tentar removendo parâmetros progressivamente
+        current_filters = dict(filters)
+        current_valormax = valormax
+        current_anomax = anomax
+        current_kmmax = kmmax
+        current_ccmax = ccmax
+        removed_filters = []
+        
+        # Primeiro remove parâmetros de range
+        for range_param in RANGE_FALLBACK:
+            debug_info["steps"].append(f"tentando remover range param: {range_param}")
+            
+            if range_param == "CcMax" and current_ccmax:
+                current_ccmax = None
+                removed_filters.append(range_param)
+            elif range_param == "ValorMax" and current_valormax:
+                current_valormax = None
+                removed_filters.append(range_param)
+            elif range_param == "AnoMax" and current_anomax:
+                current_anomax = None
+                removed_filters.append(range_param)
+            elif range_param == "KmMax" and current_kmmax:
+                current_kmmax = None
+                removed_filters.append(range_param)
+            else:
+                continue
+            
+            debug_info["steps"].append(f"removido {range_param}, testando busca...")
+            
+            # Tenta busca sem este parâmetro de range
+            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+            
+            if excluded_ids:
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if str(v.get("id")) not in excluded_ids
+                ]
+            
+            debug_info["steps"].append(f"resultado após remover {range_param}: {len(filtered_vehicles)} veículos")
+            
+            if filtered_vehicles:
+                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                fallback_info = {"fallback": {"removed_filters": removed_filters}}
+                
+                return SearchResult(
+                    vehicles=sorted_vehicles,
+                    total_found=len(sorted_vehicles),
+                    fallback_info=fallback_info,
+                    removed_filters=removed_filters,
+                    debug_info=debug_info
+                )
+        
+        # Depois remove filtros normais
+        for filter_to_remove in FALLBACK_PRIORITY:
+            if filter_to_remove not in current_filters:
+                continue
+                
+            debug_info["steps"].append(f"tentando remover filtro: {filter_to_remove}")
+            
+            # REGRA: Só faz fallback se há 2+ filtros, EXCETO para modelo que pode virar categoria
+            remaining_filters = [k for k, v in current_filters.items() if v]
+            if len(remaining_filters) == 1:
+                if filter_to_remove == "modelo":
+                    # Caso especial: modelo sozinho pode virar categoria
+                    model_value = current_filters.get("modelo")
+                    mapped_category = self.find_category_by_model(model_value) if model_value else None
+                    
+                    if not mapped_category:
+                        debug_info["steps"].append(f"PARANDO: único filtro 'modelo={model_value}' sem mapeamento disponível")
+                        break
+                    else:
+                        debug_info["steps"].append(f"permitindo: único filtro 'modelo' pode mapear '{model_value}' -> '{mapped_category}'")
+                        # Continua para executar o mapeamento abaixo
+                else:
+                    # Para qualquer outro filtro sozinho
+                    debug_info["steps"].append(f"PARANDO: único filtro '{filter_to_remove}' não pode ser removido (evita retornar estoque inteiro)")
+                    break
+            
+            # SISTEMA ESPECIAL: Se está removendo 'modelo' e não há 'categoria', tenta mapear
+            if filter_to_remove == "modelo" and "categoria" not in current_filters:
+                model_value = current_filters.get("modelo")
+                if model_value:
+                    debug_info["steps"].append(f"tentando mapear modelo '{model_value}' para categoria")
+                    # Busca categoria baseada no modelo
+                    mapped_category = self.find_category_by_model(model_value)
+                    if mapped_category:
+                        debug_info["steps"].append(f"modelo mapeado para categoria: {mapped_category}")
+                        
+                        # IMPORTANTE: Remove modelo e adiciona categoria aos filtros ORIGINAIS
+                        # Isso garante que todos os outros filtros (AnoMax, etc) sejam mantidos
+                        new_filters = {k: v for k, v in filters.items() if k != "modelo"}  # USA FILTROS ORIGINAIS
+                        new_filters["categoria"] = mapped_category
+                        removed_filters.append(f"modelo->categoria({mapped_category})")
+                        
+                        debug_info["steps"].append(f"nova busca com filtros: {new_filters} + ranges originais")
+                        
+                        # Tenta busca com categoria mapeada e TODOS os ranges originais
+                        filtered_vehicles = self.apply_filters(vehicles, new_filters)
+                        filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)  # RANGES ORIGINAIS
+                        
+                        if excluded_ids:
+                            filtered_vehicles = [
+                                v for v in filtered_vehicles
+                                if str(v.get("id")) not in excluded_ids
+                            ]
+                        
+                        debug_info["steps"].append(f"resultado com categoria mapeada + ranges originais: {len(filtered_vehicles)} veículos")
+                        
+                        if filtered_vehicles:
+                            sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+                            fallback_info = {
+                                "fallback": {
+                                    "removed_filters": removed_filters,
+                                    "model_to_category_mapping": {
+                                        "original_model": model_value,
+                                        "mapped_category": mapped_category
+                                    }
+                                }
+                            }
+                            
+                            return SearchResult(
+                                vehicles=sorted_vehicles,
+                                total_found=len(sorted_vehicles),
+                                fallback_info=fallback_info,
+                                removed_filters=removed_filters,
+                                debug_info=debug_info
+                            )(
+                                vehicles=sorted_vehicles,
+                                total_found=len(sorted_vehicles),
+                                fallback_info=fallback_info,
+                                removed_filters=removed_filters,
+                                debug_info=debug_info
+                            )
+                        
+                        # Se não encontrou com categoria + ranges originais, 
+                        # REINICIA fallback com a nova query (categoria=hatch&AnoMax=2020)
+                        debug_info["steps"].append("reiniciando fallback com categoria mapeada...")
+                        
+                        # Chama recursivamente com nova query
+                        recursive_result = self.search_with_fallback(
+                            vehicles, new_filters, valormax, anomax, kmmax, ccmax, excluded_ids
+                        )
+                        
+                        # Adiciona informação do mapeamento ao resultado
+                        if recursive_result.fallback_info:
+                            recursive_result.fallback_info["model_to_category_mapping"] = {
+                                "original_model": model_value,
+                                "mapped_category": mapped_category
+                            }
+                        else:
+                            recursive_result.fallback_info = {
+                                "model_to_category_mapping": {
+                                    "original_model": model_value, 
+                                    "mapped_category": mapped_category
+                                }
+                            }
+                        
+                        # Adiciona o mapeamento aos filtros removidos
+                        recursive_result.removed_filters = [f"modelo->categoria({mapped_category})"] + recursive_result.removed_filters
+                        
+                        return recursive_result
+                        
+                    else:
+                        debug_info["steps"].append(f"nenhuma categoria encontrada para o modelo '{model_value}'")from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from unidecode import unidecode
 from rapidfuzz import fuzz
@@ -136,6 +340,7 @@ class SearchResult:
     total_found: int
     fallback_info: Dict[str, Any]
     removed_filters: List[str]
+    debug_info: Dict[str, Any] = None
 
 class VehicleSearchEngine:
     """Engine de busca de veículos com sistema de fallback inteligente"""
@@ -271,6 +476,9 @@ class VehicleSearchEngine:
         for filter_key, filter_value in filters.items():
             if not filter_value or not filtered_vehicles:
                 continue
+            
+            print(f"DEBUG: Aplicando filtro {filter_key}={filter_value}")
+            vehicles_before = len(filtered_vehicles)
                 
             if filter_key in self.fuzzy_fields:
                 # Filtro fuzzy
@@ -278,6 +486,14 @@ class VehicleSearchEngine:
                 all_words = []
                 for val in multi_values:
                     all_words.extend(val.split())
+                
+                print(f"DEBUG: Palavras para busca fuzzy: {all_words}")
+                
+                # Debug: mostra alguns exemplos de veículos e seus campos fuzzy
+                if len(filtered_vehicles) > 0:
+                    for i, v in enumerate(filtered_vehicles[:3]):  # Mostra apenas 3 exemplos
+                        example_fields = {field: str(v.get(field, "")) for field in self.fuzzy_fields}
+                        print(f"DEBUG: Exemplo veículo {i+1} - campos fuzzy: {example_fields}")
                 
                 filtered_vehicles = [
                     v for v in filtered_vehicles
@@ -292,10 +508,22 @@ class VehicleSearchEngine:
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
+                
+                print(f"DEBUG: Valores normalizados para busca exata: {normalized_values}")
+                
+                # Debug: mostra alguns exemplos de veículos e seus campos exatos
+                if len(filtered_vehicles) > 0:
+                    for i, v in enumerate(filtered_vehicles[:3]):  # Mostra apenas 3 exemplos
+                        example_fields = {field: self.normalize_text(str(v.get(field, ""))) for field in self.exact_fields}
+                        print(f"DEBUG: Exemplo veículo {i+1} - campos exatos normalizados: {example_fields}")
+                
                 filtered_vehicles = [
                     v for v in filtered_vehicles
                     if self.normalize_text(str(v.get(filter_key, ""))) in normalized_values
                 ]
+            
+            vehicles_after = len(filtered_vehicles)
+            print(f"DEBUG: Filtro {filter_key}: {vehicles_before} -> {vehicles_after} veículos")
         
         return filtered_vehicles
     
