@@ -742,10 +742,46 @@ def get_data(request: Request):
     # Remove filtros vazios
     filters = {k: v for k, v in filters.items() if v}
     
+    # Verifica se há filtros de busca reais (exclui parâmetros especiais)
+    has_search_filters = bool(filters) or valormax or anomax or kmmax or ccmax
+    
     # Processa IDs a excluir
     excluded_ids = set()
     if excluir:
         excluded_ids = set(e.strip() for e in excluir.split(",") if e.strip())
+    
+    # Se não há filtros de busca, retorna todo o estoque
+    if not has_search_filters:
+        all_vehicles = list(vehicles)
+        
+        # Remove IDs excluídos se especificado
+        if excluded_ids:
+            all_vehicles = [
+                v for v in all_vehicles
+                if str(v.get("id")) not in excluded_ids
+            ]
+        
+        # Ordena por preço decrescente (padrão)
+        sorted_vehicles = sorted(all_vehicles, key=lambda v: search_engine.convert_price(v.get("preco")) or 0, reverse=True)
+        
+        # Limita a 6 resultados
+        limited_vehicles = sorted_vehicles[:6]
+        
+        # Aplica modo simples se solicitado
+        if simples == "1":
+            for vehicle in limited_vehicles:
+                # Mantém apenas a primeira foto
+                fotos = vehicle.get("fotos")
+                if isinstance(fotos, list):
+                    vehicle["fotos"] = fotos[:1] if fotos else []
+                # Remove opcionais
+                vehicle.pop("opcionais", None)
+        
+        return JSONResponse(content={
+            "resultados": limited_vehicles,
+            "total_encontrado": len(sorted_vehicles),
+            "info": "Exibindo todo o estoque disponível"
+        })
     
     # Executa a busca com fallback
     result = search_engine.search_with_fallback(
