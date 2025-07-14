@@ -237,12 +237,13 @@ class VehicleSearchEngine:
             return []
         return [v.strip() for v in str(value).split(',') if v.strip()]
     
-    def fuzzy_match(self, query_words: List[str], field_content: str) -> bool:
+    def fuzzy_match(self, query_words: List[str], field_content: str) -> Tuple[bool, str]:
         """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
         if not query_words or not field_content:
-            return False
+            return False, "empty_input"
             
         normalized_content = self.normalize_text(field_content)
+        debug_info = f"Comparando '{query_words}' com '{normalized_content}'"
         
         for word in query_words:
             normalized_word = self.normalize_text(word)
@@ -251,54 +252,138 @@ class VehicleSearchEngine:
                 
             # Match exato
             if normalized_word in normalized_content:
-                return True
+                return True, f"exact_match: {normalized_word} in {normalized_content}"
                 
-            # Match fuzzy para palavras com 4+ caracteres
-            if len(normalized_word) >= 4:
+            # Match fuzzy para palavras com 3+ caracteres
+            if len(normalized_word) >= 3:
                 partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
                 ratio_score = fuzz.ratio(normalized_content, normalized_word)
-                if max(partial_score, ratio_score) >= 85:
-                    return True
+                max_score = max(partial_score, ratio_score)
+                
+                if max_score >= 80:  # Baixei de 85 para 80 para ser mais permissivo
+                    return True, f"fuzzy_match: {normalized_word} vs {normalized_content} = {max_score}"
         
-        return False
+        return False, debug_info
     
-    def apply_filters(self, vehicles: List[Dict], filters: Dict[str, str]) -> List[Dict]:
-        """Aplica filtros aos veículos"""
+    def apply_filters(self, vehicles: List[Dict], filters: Dict[str, str]) -> Tuple[List[Dict], Dict]:
+        """Aplica filtros aos veículos com debug detalhado"""
         if not filters:
-            return vehicles
+            return vehicles, {}
             
+        debug_info = {
+            "total_initial": len(vehicles),
+            "filters_applied": {},
+            "sample_vehicles": []
+        }
+        
+        # Amostra dos primeiros 3 veículos para debug
+        debug_info["sample_vehicles"] = [
+            {
+                "id": v.get("id"),
+                "modelo": v.get("modelo"),
+                "titulo": v.get("titulo"),
+                "marca": v.get("marca"),
+                "categoria": v.get("categoria")
+            }
+            for v in vehicles[:3]
+        ]
+        
         filtered_vehicles = list(vehicles)
         
         for filter_key, filter_value in filters.items():
             if not filter_value or not filtered_vehicles:
                 continue
-                
+            
+            initial_count = len(filtered_vehicles)
+            
             if filter_key in self.fuzzy_fields:
-                # Filtro fuzzy
+                # Filtro fuzzy com debug
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
                     all_words.extend(val.split())
                 
+                matches = []
+                no_matches = []
+                
+                for v in filtered_vehicles:
+                    matched = False
+                    match_info = []
+                    
+                    for field in self.fuzzy_fields:
+                        field_value = str(v.get(field, ""))
+                        if field_value:
+                            is_match, debug_msg = self.fuzzy_match(all_words, field_value)
+                            if is_match:
+                                matched = True
+                                match_info.append(f"{field}: {debug_msg}")
+                    
+                    if matched:
+                        matches.append({
+                            "id": v.get("id"),
+                            "match_info": match_info
+                        })
+                    else:
+                        no_matches.append({
+                            "id": v.get("id"),
+                            "modelo": v.get("modelo"),
+                            "titulo": v.get("titulo")
+                        })
+                
                 filtered_vehicles = [
                     v for v in filtered_vehicles
                     if any(
-                        self.fuzzy_match(all_words, str(v.get(field, "")))
+                        self.fuzzy_match(all_words, str(v.get(field, "")))[0]
                         for field in self.fuzzy_fields
                     )
                 ]
                 
+                debug_info["filters_applied"][filter_key] = {
+                    "type": "fuzzy",
+                    "query_words": all_words,
+                    "initial_count": initial_count,
+                    "final_count": len(filtered_vehicles),
+                    "matches": matches[:5],  # Primeiros 5 matches
+                    "no_matches": no_matches[:5]  # Primeiros 5 sem match
+                }
+                
             elif filter_key in self.exact_fields:
-                # Filtro exato
+                # Filtro exato com debug
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
+                
+                matches = []
+                no_matches = []
+                
+                for v in filtered_vehicles:
+                    field_value = self.normalize_text(str(v.get(filter_key, "")))
+                    if field_value in normalized_values:
+                        matches.append({
+                            "id": v.get("id"),
+                            "field_value": field_value
+                        })
+                    else:
+                        no_matches.append({
+                            "id": v.get("id"),
+                            "field_value": field_value
+                        })
+                
                 filtered_vehicles = [
                     v for v in filtered_vehicles
                     if self.normalize_text(str(v.get(filter_key, ""))) in normalized_values
                 ]
+                
+                debug_info["filters_applied"][filter_key] = {
+                    "type": "exact",
+                    "normalized_values": normalized_values,
+                    "initial_count": initial_count,
+                    "final_count": len(filtered_vehicles),
+                    "matches": matches[:5],
+                    "no_matches": no_matches[:5]
+                }
         
-        return filtered_vehicles
+        return filtered_vehicles, debug_info
     
     def apply_range_filters(self, vehicles: List[Dict], valormax: Optional[str], 
                           anomax: Optional[str], kmmax: Optional[str], ccmax: Optional[str]) -> List[Dict]:
@@ -438,8 +523,16 @@ class VehicleSearchEngine:
         print(f"DEBUG: Total de veículos disponíveis: {len(vehicles)}")
         
         # Primeira tentativa: busca normal com expansão automática
-        filtered_vehicles = self.apply_filters(vehicles, filters)
+        filtered_vehicles, filter_debug = self.apply_filters(vehicles, filters)
         print(f"DEBUG: Após apply_filters: {len(filtered_vehicles)} veículos")
+        
+        # Print debug detalhado dos filtros
+        for filter_name, filter_info in filter_debug.get("filters_applied", {}).items():
+            print(f"DEBUG: Filtro '{filter_name}' ({filter_info['type']}): {filter_info['initial_count']} -> {filter_info['final_count']}")
+            if filter_info.get("matches"):
+                print(f"DEBUG: Matches: {filter_info['matches']}")
+            if filter_info.get("no_matches"):
+                print(f"DEBUG: No matches: {filter_info['no_matches']}")
         
         filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
         print(f"DEBUG: Após apply_range_filters: {len(filtered_vehicles)} veículos")
@@ -459,7 +552,8 @@ class VehicleSearchEngine:
                 vehicles=sorted_vehicles,
                 total_found=len(sorted_vehicles),
                 fallback_info={},
-                removed_filters=[]
+                removed_filters=[],
+                debug_info=filter_debug
             )
         
         print("DEBUG: Iniciando fallback...")
@@ -494,7 +588,7 @@ class VehicleSearchEngine:
             print(f"DEBUG: Removido {range_param}, testando busca...")
             
             # Tenta busca sem este parâmetro de range
-            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+            filtered_vehicles, _ = self.apply_filters(vehicles, current_filters)
             filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
             
             if excluded_ids:
@@ -513,7 +607,8 @@ class VehicleSearchEngine:
                     vehicles=sorted_vehicles,
                     total_found=len(sorted_vehicles),
                     fallback_info=fallback_info,
-                    removed_filters=removed_filters
+                    removed_filters=removed_filters,
+                    debug_info=filter_debug
                 )
         
         # Depois remove filtros normais
@@ -544,7 +639,7 @@ class VehicleSearchEngine:
                         removed_filters.append(f"modelo->categoria({mapped_category})")
                         
                         # Tenta busca com categoria mapeada
-                        filtered_vehicles = self.apply_filters(vehicles, new_filters)
+                        filtered_vehicles, _ = self.apply_filters(vehicles, new_filters)
                         filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
                         
                         if excluded_ids:
@@ -571,7 +666,8 @@ class VehicleSearchEngine:
                                 vehicles=sorted_vehicles,
                                 total_found=len(sorted_vehicles),
                                 fallback_info=fallback_info,
-                                removed_filters=removed_filters
+                                removed_filters=removed_filters,
+                                debug_info=filter_debug
                             )
                         
                         # Se não encontrou com a categoria mapeada, continua o fallback normal
@@ -587,7 +683,7 @@ class VehicleSearchEngine:
             print(f"DEBUG: Removido filtro '{filter_to_remove}', filtros restantes: {current_filters}")
             
             # Tenta busca sem o filtro removido
-            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+            filtered_vehicles, _ = self.apply_filters(vehicles, current_filters)
             filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
             
             if excluded_ids:
@@ -606,7 +702,8 @@ class VehicleSearchEngine:
                     vehicles=sorted_vehicles,
                     total_found=len(sorted_vehicles),
                     fallback_info=fallback_info,
-                    removed_filters=removed_filters
+                    removed_filters=removed_filters,
+                    debug_info=filter_debug
                 )
         
         print("DEBUG: Nenhum resultado encontrado mesmo com fallback")
@@ -616,7 +713,8 @@ class VehicleSearchEngine:
             vehicles=[],
             total_found=0,
             fallback_info={},
-            removed_filters=removed_filters
+            removed_filters=removed_filters,
+            debug_info=filter_debug
         )
 
 # Instância global do motor de busca
@@ -674,6 +772,7 @@ def get_data(request: Request):
     ccmax = query_params.pop("CcMax", None)
     simples = query_params.pop("simples", None)
     excluir = query_params.pop("excluir", None)
+    debug_mode = query_params.pop("debug", None)  # Novo parâmetro para debug
     
     # Filtros principais
     filters = {
@@ -720,6 +819,10 @@ def get_data(request: Request):
     if result.fallback_info:
         response_data.update(result.fallback_info)
     
+    # Adiciona debug info se solicitado
+    if debug_mode == "1" and result.debug_info:
+        response_data["debug_info"] = result.debug_info
+    
     # Mensagem especial se não encontrou nada
     if result.total_found == 0:
         response_data["instrucao_ia"] = (
@@ -733,6 +836,41 @@ def get_data(request: Request):
 def health_check():
     """Endpoint de verificação de saúde"""
     return {"status": "healthy", "timestamp": "2025-07-13"}
+
+@app.get("/api/debug/models")
+def debug_models():
+    """Endpoint para debug - lista todos os modelos únicos no banco"""
+    if not os.path.exists("data.json"):
+        return JSONResponse(content={"error": "Nenhum dado disponível"}, status_code=404)
+    
+    try:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        vehicles = data.get("veiculos", [])
+        models = set()
+        model_samples = {}
+        
+        for v in vehicles:
+            modelo = v.get("modelo", "")
+            titulo = v.get("titulo", "")
+            if modelo:
+                models.add(modelo)
+                if modelo not in model_samples:
+                    model_samples[modelo] = {
+                        "titulo": titulo,
+                        "marca": v.get("marca", ""),
+                        "categoria": v.get("categoria", "")
+                    }
+        
+        return JSONResponse(content={
+            "total_models": len(models),
+            "models": sorted(list(models)),
+            "model_samples": model_samples
+        })
+        
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn
