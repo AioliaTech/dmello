@@ -723,12 +723,9 @@ def get_data(request: Request):
         # Ordena por preço decrescente (padrão)
         sorted_vehicles = sorted(all_vehicles, key=lambda v: search_engine.convert_price(v.get("preco")) or 0, reverse=True)
         
-        # Limita a 6 resultados
-        limited_vehicles = sorted_vehicles[:6]
-        
         # Aplica modo simples se solicitado
         if simples == "1":
-            for vehicle in limited_vehicles:
+            for vehicle in sorted_vehicles:
                 # Mantém apenas a primeira foto
                 fotos = vehicle.get("fotos")
                 if isinstance(fotos, list):
@@ -737,7 +734,7 @@ def get_data(request: Request):
                 vehicle.pop("opcionais", None)
         
         return JSONResponse(content={
-            "resultados": limited_vehicles,
+            "resultados": sorted_vehicles,  # AQUI ESTAVA O PROBLEMA - retorna todos, não limita a 6
             "total_encontrado": len(sorted_vehicles),
             "info": "Exibindo todo o estoque disponível"
         })
