@@ -21,7 +21,7 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "categoria",
+    "modelo",
     "marca",
     "modelo"         # Mais importante (nunca remove sozinho)
 ]
@@ -686,6 +686,9 @@ def get_data(request: Request):
     simples = query_params.pop("simples", None)
     excluir = query_params.pop("excluir", None)
     
+    # Parâmetro especial para busca por ID
+    id_param = query_params.pop("id", None)
+    
     # Filtros principais
     filters = {
         "tipo": query_params.get("tipo"),
@@ -700,6 +703,34 @@ def get_data(request: Request):
     
     # Remove filtros vazios
     filters = {k: v for k, v in filters.items() if v}
+    
+    # BUSCA POR ID ESPECÍFICO - tem prioridade sobre tudo
+    if id_param:
+        vehicle_found = None
+        for vehicle in vehicles:
+            if str(vehicle.get("id")) == str(id_param):
+                vehicle_found = vehicle
+                break
+        
+        if vehicle_found:
+            # Aplica modo simples se solicitado
+            if simples == "1":
+                fotos = vehicle_found.get("fotos")
+                if isinstance(fotos, list):
+                    vehicle_found["fotos"] = fotos[:1] if fotos else []
+                vehicle_found.pop("opcionais", None)
+            
+            return JSONResponse(content={
+                "resultados": [vehicle_found],
+                "total_encontrado": 1,
+                "info": f"Veículo encontrado por ID: {id_param}"
+            })
+        else:
+            return JSONResponse(content={
+                "resultados": [],
+                "total_encontrado": 0,
+                "error": f"Veículo com ID {id_param} não encontrado"
+            })
     
     # Verifica se há filtros de busca reais (exclui parâmetros especiais)
     has_search_filters = bool(filters) or valormax or anomax or kmmax or ccmax
