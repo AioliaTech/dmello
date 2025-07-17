@@ -23,7 +23,7 @@ FALLBACK_PRIORITY = [
     "cambio",
     "modelo",
     "marca",
-    "modelo"         # Mais importante (nunca remove sozinho)
+    "categoria"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
@@ -53,7 +53,7 @@ for model in suv_models:
     MAPEAMENTO_CATEGORIAS[model] = "suv"
 
 # Caminhonete
-caminhonete_models = ["hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "gladiator", "maverick", "colorado", "dakota", "montana (nova)", "f-250", "f250", "courier (pickup)", "hoggar", "ram 1500"]
+caminhonete_models = ["hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "gladiator", "maverick", "colorado", "dakota", "montana (nova)", "f-250", "f250", "courier (pickup)", "hoggar", "ram 1500", "rampage"]
 for model in caminhonete_models:
     MAPEAMENTO_CATEGORIAS[model] = "caminhonete"
 
@@ -104,7 +104,6 @@ class VehicleSearchEngine:
     """Engine de busca de veículos com sistema de fallback inteligente"""
     
     def __init__(self):
-        self.fuzzy_fields = ["modelo", "titulo", "cor", "opcionais"]
         self.exact_fields = ["tipo", "marca", "categoria", "cambio", "combustivel"]
         
     def normalize_text(self, text: str) -> str:
@@ -201,8 +200,8 @@ class VehicleSearchEngine:
         query_words = model_query.split()
         
         for vehicle in vehicles:
-            # Verifica em todos os campos fuzzy
-            for field in self.fuzzy_fields:
+            # Verifica nos campos de modelo e titulo (onde modelo é buscado)
+            for field in ["modelo", "titulo"]:
                 field_value = str(vehicle.get(field, ""))
                 if field_value:
                     is_match, _ = self.fuzzy_match(query_words, field_value)
@@ -228,17 +227,29 @@ class VehicleSearchEngine:
             if len(normalized_word) < 2:
                 continue
                 
-            # Match exato
+            # Match exato (substring)
             if normalized_word in normalized_content:
                 return True, f"exact_match: {normalized_word}"
-                
+            
+            # Match no início da palavra (para casos como "ram" em "rampage")
+            content_words = normalized_content.split()
+            for content_word in content_words:
+                if content_word.startswith(normalized_word):
+                    return True, f"starts_with_match: {normalized_word}"
+                    
             # Match fuzzy para palavras com 3+ caracteres
             if len(normalized_word) >= 3:
+                # Verifica se a palavra da query está contida em alguma palavra do conteúdo
+                for content_word in content_words:
+                    if normalized_word in content_word:
+                        return True, f"substring_match: {normalized_word} in {content_word}"
+                
+                # Fuzzy matching tradicional
                 partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
                 ratio_score = fuzz.ratio(normalized_content, normalized_word)
                 max_score = max(partial_score, ratio_score)
                 
-                if max_score >= 80:
+                if max_score >= 87:
                     return True, f"fuzzy_match: {max_score}"
         
         return False, "no_match"
@@ -254,8 +265,8 @@ class VehicleSearchEngine:
             if not filter_value or not filtered_vehicles:
                 continue
             
-            if filter_key in self.fuzzy_fields:
-                # Filtro fuzzy
+            if filter_key == "modelo":
+                # Filtro de modelo: busca em 'modelo' e 'titulo' com fuzzy
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -263,14 +274,36 @@ class VehicleSearchEngine:
                 
                 filtered_vehicles = [
                     v for v in filtered_vehicles
-                    if any(
-                        self.fuzzy_match(all_words, str(v.get(field, "")))[0]
-                        for field in self.fuzzy_fields
-                    )
+                    if (self.fuzzy_match(all_words, str(v.get("modelo", "")))[0] or 
+                        self.fuzzy_match(all_words, str(v.get("titulo", "")))[0])
+                ]
+                
+            elif filter_key == "cor":
+                # Filtro de cor: busca apenas no campo 'cor' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("cor", "")))[0]
+                ]
+                
+            elif filter_key == "opcionais":
+                # Filtro de opcionais: busca apenas no campo 'opcionais' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("opcionais", "")))[0]
                 ]
                 
             elif filter_key in self.exact_fields:
-                # Filtro exato
+                # Filtros exatos (tipo, marca, categoria, cambio, combustivel)
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
