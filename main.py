@@ -33,22 +33,22 @@ RANGE_FALLBACK = ["CcMax", "KmMax", "AnoMax", "ValorMax"]
 MAPEAMENTO_CATEGORIAS = {}
 
 # Hatch apenas
-hatch_models = ["gol", "uno", "palio", "celta", "march", "sandero", "i30", "golf", "fox", "up", "fit", "etios", "bravo", "punto", "208", "argo", "mobi", "c3", "picanto", "stilo", "c4 vtr", "kwid", "soul", "agile", "fusca"]
+hatch_models = ["gol", "uno", "palio", "celta", "march", "sandero", "i30", "golf", "fox", "up", "fit", "etios", "bravo", "punto", "208", "argo", "mobi", "c3", "picanto", "stilo", "c4 vtr", "kwid", "soul", "agile", "fusca", "a1", "new beetle"]
 for model in hatch_models:
     MAPEAMENTO_CATEGORIAS[model] = "hatch"
 
 # Sedan apenas
-sedan_models = ["sentra", "jetta", "voyage", "siena", "grand siena", "cobalt", "logan", "fluence", "cerato", "elantra", "virtus", "accord", "altima", "fusion", "mazda6", "passat", "vectra sedan", "classic", "cronos", "linea", "408", "508", "c4 pallas", "bora", "hb20s", "lancer", "camry", "onix plus", "azera", "mondeo"]
+sedan_models = ["sentra", "jetta", "voyage", "siena", "grand siena", "cobalt", "logan", "fluence", "cerato", "elantra", "virtus", "accord", "altima", "fusion", "mazda6", "passat", "vectra sedan", "classic", "cronos", "linea", "408", "508", "c4 pallas", "bora", "hb20s", "lancer", "camry", "onix plus", "azera", "mondeo", "a4", "a5", "a6", "a7", "a8", "rs3", "rs5", "rs7", "e-tron gt", "malibu"]
 for model in sedan_models:
     MAPEAMENTO_CATEGORIAS[model] = "sedan"
 
 # Hatch e Sedan (modelos que existem nas duas versoes)
-hatch_sedan_models = ["onix", "hb20", "yaris", "city", "audi_a3", "audi a3", "mercedes_a_class", "mercedes a class", "mazda3", "corolla", "civic", "impreza", "focus", "fiesta", "escort", "corsa", "astra", "vectra", "chevette", "monza", "sonic", "cruze", "clio", "megane", "206", "207", "307", "tiida", "accent", "rio", "swift", "baleno", "ka", "versa", "prisma", "polo", "c4"]
+hatch_sedan_models = ["onix", "hb20", "yaris", "city", "a3", "mercedes_a_class", "mercedes a class", "mazda3", "corolla", "civic", "impreza", "focus", "fiesta", "escort", "corsa", "astra", "vectra", "chevette", "monza", "sonic", "cruze", "clio", "megane", "206", "207", "307", "tiida", "accent", "rio", "swift", "baleno", "ka", "versa", "prisma", "polo", "c4"]
 for model in hatch_sedan_models:
     MAPEAMENTO_CATEGORIAS[model] = "hatch,sedan"
 
 # SUV
-suv_models = ["duster", "ecosport", "hrv", "hr-v", "compass", "renegade", "tracker", "kicks", "captur", "creta", "tucson", "santa fe", "santa", "sorento", "sportage", "outlander", "asx", "pajero", "tr4", "aircross", "tiguan", "t-cross", "tcross", "touareg", "rav4", "cx5", "forester", "wrv", "land cruiser", "cherokee", "grand cherokee", "xtrail", "x-trail", "murano", "cx9", "edge", "trailblazer", "pulse", "fastback", "territory", "bronco sport", "2008", "3008", "5008", "c4 cactus", "taos", "crv", "cr-v", "corolla cross", "sw4", "pajero sport", "commander", "xv", "xc60", "tiggo 5x", "haval h6", "nivus", "pilot", "highlander", "equinox", "tahoe", "explorer", "pathfinder", "frontier suv"]
+suv_models = ["duster", "ecosport", "hrv", "hr-v", "compass", "renegade", "tracker", "kicks", "captur", "creta", "tucson", "santa fe", "santa", "sorento", "sportage", "outlander", "asx", "pajero", "tr4", "aircross", "tiguan", "t-cross", "tcross", "touareg", "rav4", "cx5", "forester", "wrv", "land cruiser", "cherokee", "grand cherokee", "xtrail", "x-trail", "murano", "cx9", "edge", "trailblazer", "pulse", "fastback", "territory", "bronco sport", "2008", "3008", "5008", "c4 cactus", "taos", "crv", "cr-v", "corolla cross", "sw4", "pajero sport", "commander", "xv", "xc60", "tiggo 5x", "haval h6", "nivus", "pilot", "highlander", "equinox", "tahoe", "explorer", "pathfinder", "frontier suv", "wrx", "q2", "q3", "q4 e-tron", "q5", "q7", "q8", "e-tron"]
 for model in suv_models:
     MAPEAMENTO_CATEGORIAS[model] = "suv"
 
@@ -68,7 +68,7 @@ for model in furgao_models:
     MAPEAMENTO_CATEGORIAS[model] = "furgao"
 
 # Coupe
-coupe_models = ["camaro", "mustang", "tt", "supra", "370z", "rx8", "challenger", "corvette", "veloster", "cerato koup", "clk coupe", "a5 coupe", "gt86", "rcz", "brz"]
+coupe_models = ["camaro", "mustang", "tt", "supra", "370z", "rx8", "challenger", "corvette", "veloster", "cerato koup", "clk coupe", "a5 coupe", "gt86", "rcz", "brz", "tts", "r8"]
 for model in coupe_models:
     MAPEAMENTO_CATEGORIAS[model] = "coupe"
 
@@ -751,7 +751,6 @@ def get_data(request: Request):
                 fotos = vehicle_found.get("fotos")
                 if isinstance(fotos, list):
                     vehicle_found["fotos"] = fotos[:1] if fotos else []
-                vehicle_found.pop("opcionais", None)
             
             return JSONResponse(content={
                 "resultados": [vehicle_found],
@@ -795,7 +794,6 @@ def get_data(request: Request):
                 if isinstance(fotos, list):
                     vehicle["fotos"] = fotos[:1] if fotos else []
                 # Remove opcionais
-                vehicle.pop("opcionais", None)
         
         return JSONResponse(content={
             "resultados": sorted_vehicles,  # AQUI ESTAVA O PROBLEMA - retorna todos, não limita a 6
@@ -815,8 +813,6 @@ def get_data(request: Request):
             fotos = vehicle.get("fotos")
             if isinstance(fotos, list):
                 vehicle["fotos"] = fotos[:1] if fotos else []
-            # Remove opcionais
-            vehicle.pop("opcionais", None)
     
     # Monta resposta
     response_data = {
