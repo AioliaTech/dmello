@@ -424,9 +424,9 @@ class RevendamaisParser(AutoconfParser):
                 "id": v.get("ID"),
                 "tipo": v.get("CATEGORY"),
                 "titulo": v.get("TITLE"),  # Revendamais tem título!
-                "versao": None,  # Revendamais não tem versão
+                "versao": v.get("MODEL"),
                 "marca": v.get("MAKE"),
-                "modelo": v.get("MODEL"),
+                "modelo": v.get("BASE_MODEL"),
                 "ano": v.get("YEAR"),
                 "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"),
