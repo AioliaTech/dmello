@@ -218,7 +218,7 @@ class AutocertoParser(BaseParser):
                 "id": v.get("idveiculo"), "tipo": v.get("tipoveiculo"), "titulo": None, "versao": None,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anomodelo"), "ano_fabricacao": None,
                 "km": v.get("quilometragem"), "cor": v.get("cor"), "combustivel": v.get("combustivel"),
-                "cambio": v.get("cambio"), "motor": None, "portas": v.get("numeroportas"), "categoria": categoria_final,
+                "cambio": v.get("cambio"), "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, "portas": v.get("numeroportas"), "categoria": categoria_final,
                 "cilindrada": inferir_cilindrada(modelo_veiculo), "preco": converter_preco(v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             }
