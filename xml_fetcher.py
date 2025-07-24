@@ -422,7 +422,7 @@ class RevendamaisParser(AutoconfParser):
         for v in ads:
             parsed = {
                 "id": v.get("ID"),
-                "tipo": v.get("CATEGORY"),
+                "tipo": "moto" if v.get("CATEGORY", "").lower() == "motocicleta" else v.get("CATEGORY"),
                 "titulo": v.get("TITLE"),  # Revendamais tem título!
                 "versao": v.get("MODEL"),
                 "marca": v.get("MAKE"),
