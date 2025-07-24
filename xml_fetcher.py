@@ -14,43 +14,29 @@ JSON_FILE = "data.json"
 
 # =================== MAPEAMENTOS DE VEÍCULOS =======================
 
-# Mapeamento principal, será populado pelas listas abaixo
 MAPEAMENTO_CATEGORIAS = {}
 OPCIONAL_CHAVE_HATCH = "limpador traseiro"
 
-# --- Listas de Modelos por Categoria ---
+# --- Listas de Modelos por Categoria (Chaves para Busca Exata) ---
 
-# Hatch apenas
 hatch_models = ["gol", "uno", "palio", "celta", "march", "sandero", "i30", "golf", "fox", "up", "fit", "etios", "bravo", "punto", "208", "argo", "mobi", "c3", "picanto", "stilo", "c4 vtr", "kwid", "soul", "agile", "fusca", "a1", "new beetle"]
-for model in hatch_models:
-    MAPEAMENTO_CATEGORIAS[model] = "Hatch"
+for model in hatch_models: MAPEAMENTO_CATEGORIAS[model] = "Hatch"
 
-# Sedan apenas
 sedan_models = ["sentra", "jetta", "voyage", "siena", "grand siena", "cobalt", "logan", "fluence", "cerato", "elantra", "virtus", "accord", "altima", "fusion", "passat", "vectra sedan", "classic", "cronos", "linea", "408", "c4 pallas", "bora", "hb20s", "lancer", "camry", "onix plus", "azera", "malibu"]
-for model in sedan_models:
-    MAPEAMENTO_CATEGORIAS[model] = "Sedan"
+for model in sedan_models: MAPEAMENTO_CATEGORIAS[model] = "Sedan"
 
-# Hatch e Sedan (modelos que existem nas duas versoes)
 hatch_sedan_models = ["onix", "hb20", "yaris", "city", "a3", "corolla", "civic", "focus", "fiesta", "corsa", "astra", "vectra", "cruze", "clio", "megane", "206", "207", "307", "tiida", "ka", "versa", "prisma", "polo", "c4"]
-for model in hatch_sedan_models:
-    MAPEAMENTO_CATEGORIAS[model] = "hatch,sedan" # Flag para indicar ambiguidade
+for model in hatch_sedan_models: MAPEAMENTO_CATEGORIAS[model] = "hatch,sedan"
 
-# SUV
-suv_models = ["duster", "c4 cactus", "ecosport", "hrv", "hr-v", "compass", "renegade", "tracker", "kicks", "captur", "creta", "tucson", "santa fe", "sorento", "sportage", "pajero", "tr4", "aircross", "tiguan", "t-cross", "tcross", "rav4", "land cruiser", "cherokee", "grand cherokee", "trailblazer", "pulse", "fastback", "territory", "bronco sport", "2008", "3008", "5008", "c4 cactus", "taos", "crv", "cr-v", "corolla cross", "sw4", "pajero sport", "commander", "nivus", "equinox"]
-for model in suv_models:
-    MAPEAMENTO_CATEGORIAS[model] = "SUV"
+suv_models = ["duster", "ecosport", "hrv", "hr-v", "compass", "renegade", "tracker", "kicks", "captur", "creta", "tucson", "santa fe", "sorento", "sportage", "pajero", "tr4", "aircross", "tiguan", "t-cross", "tcross", "rav4", "land cruiser", "cherokee", "grand cherokee", "trailblazer", "pulse", "fastback", "territory", "bronco sport", "2008", "3008", "5008", "c4 cactus", "taos", "crv", "cr-v", "corolla cross", "sw4", "pajero sport", "commander", "nivus", "equinox"]
+for model in suv_models: MAPEAMENTO_CATEGORIAS[model] = "SUV"
 
-# Caminhonete
 caminhonete_models = ["hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "maverick", "montana", "ram 1500", "rampage"]
-for model in caminhonete_models:
-    MAPEAMENTO_CATEGORIAS[model] = "Caminhonete"
+for model in caminhonete_models: MAPEAMENTO_CATEGORIAS[model] = "Caminhonete"
 
-# Utilitario
 utilitario_models = ["saveiro", "strada", "oroch", "kangoo", "partner", "doblo", "fiorino", "kombi", "doblo cargo"]
-for model in utilitario_models:
-    MAPEAMENTO_CATEGORIAS[model] = "Utilitário"
+for model in utilitario_models: MAPEAMENTO_CATEGORIAS[model] = "Utilitário"
 
-# Mapeamento de cilindradas para motos (mantido como estava)
 MAPEAMENTO_CILINDRADAS = {
     "g 310": 300, "f 750 gs": 850, "f 850 gs": 850, "f 900": 900, "r 1250": 1250, "r 1300": 1300, "r 18": 1800, "k 1300": 1300, "k 1600": 1650, "s 1000": 1000, "g 650 gs": 650, "cb 300": 300, "cb 500": 500, "cb 650": 650, "cb 1000r": 1000, "cb twister": 300, "twister": 300, "cbr 250": 250, "cbr 500": 500, "cbr 600": 600, "cbr 650": 650, "cbr 1000": 1000, "hornet 600": 600, "cb 600f": 600, "xre 190": 190, "xre 300": 300, "xre 300 sahara": 300, "sahara 300": 300, "sahara 300 rally": 300, "nxr 160": 160, "bros 160": 160, "cg 160": 160, "cg 160 titan": 160, "cg 160 fan": 160, "cg 160 start": 160, "cg 160 titan s": 160, "cg 125": 125, "cg 125 fan ks": 125, "biz 125": 125, "biz 125 es": 125, "biz 110": 110, "pop 110": 110, "pop 110i": 110, "pcx 150": 150, "pcx 160": 160, "xj6": 600, "mt 03": 300, "mt 07": 690, "mt 09": 890, "mt 01": 1700, "fazer 150": 150, "fazer 250": 250, "ys 250": 250, "factor 125": 125, "factor 150": 150, "xtz 150": 150, "xtz 250": 250, "xtz 250 tenere": 250, "tenere 250": 250, "lander 250": 250, "yzf r3": 300, "yzf r-3": 300, "r15": 150, "r1": 1000, "nmax 160": 160, "xmax 250": 250, "gs500": 500, "bandit 600": 600, "bandit 650": 650, "bandit 1250": 1250, "gsx 650f": 650, "gsx-s 750": 750, "gsx-s 1000": 1000, "hayabusa": 1350, "gixxer 250": 250, "burgman 125": 125, "z300": 300, "z400": 400, "z650": 650, "z750": 750, "z800": 800, "z900": 950, "z1000": 1000, "ninja 300": 300, "ninja 400": 400, "ninja 650": 650, "ninja 1000": 1050, "ninja zx-10r": 1000, "er6n": 650, "versys 300": 300, "versys 650": 650, "xt 660": 660, "meteor 350": 350, "classic 350": 350, "hunter 350": 350, "himalayan": 400, "interceptor 650": 650, "continental gt 650": 650, "tiger 800": 800, "tiger 900": 900, "street triple": 750, "speed triple": 1050, "bonneville": 900, "trident 660": 660, "monster 797": 800, "monster 821": 820, "monster 937": 940, "panigale v2": 950, "panigale v4": 1100, "iron 883": 883, "forty eight": 1200, "sportster s": 1250, "fat bob": 1140, "road glide": 2150, "street glide": 1750, "next 300": 300, "commander 250": 250, "dafra citycom 300": 300, "dr 160": 160, "dr 160 s": 160, "cforce 1000": 1000, "trx 420": 420, "t350 x": 350, "xr300l tornado": 300, "fz25 fazer": 250, "fz15 fazer": 150, "biz es": 125, "elite 125": 125, "crf 230f": 230, "cg150 fan": 150, "cg150 titan": 150, "diavel 1260": 1260, "YZF R-6": 600, "MT-03": 300, "MT03": 300, "ER-6N": 650, "xt 600": 600, "cg 125": 125
 }
@@ -58,9 +44,7 @@ MAPEAMENTO_CILINDRADAS = {
 # =================== UTILS =======================
 
 def normalizar_texto(texto: str) -> str:
-    """Normaliza texto removendo acentos e caracteres especiais"""
-    if not texto:
-        return ""
+    if not texto: return ""
     texto_norm = unidecode(str(texto)).lower()
     texto_norm = re.sub(r'[^a-z0-9\s]', '', texto_norm)
     texto_norm = re.sub(r'\s+', ' ', texto_norm).strip()
@@ -68,97 +52,89 @@ def normalizar_texto(texto: str) -> str:
 
 def definir_categoria_veiculo(modelo: str, opcionais: str = "") -> Optional[str]:
     """
-    Define a categoria de um veículo usando o mapeamento principal.
+    Define a categoria de um veículo usando busca EXATA no mapeamento.
     Para modelos ambíguos ("hatch,sedan"), usa os opcionais para decidir.
     """
-    if not modelo:
-        return None
-
+    if not modelo: return None
+    
+    # Normaliza o modelo do feed para uma busca exata
     modelo_norm = normalizar_texto(modelo)
-
-    for modelo_mapeado, categoria_result in MAPEAMENTO_CATEGORIAS.items():
-        if modelo_mapeado in modelo_norm:
-            if categoria_result == "hatch,sedan":
+    
+    # Busca pela chave exata no mapeamento
+    categoria_result = MAPEAMENTO_CATEGORIAS.get(modelo_norm)
+    
+    # Se encontrou uma correspondência exata
+    if categoria_result:
+        if categoria_result == "hatch,sedan":
+            opcionais_norm = normalizar_texto(opcionais)
+            opcional_chave_norm = normalizar_texto(OPCIONAL_CHAVE_HATCH)
+            if opcional_chave_norm in opcionais_norm:
+                return "Hatch"
+            else:
+                return "Sedan"
+        else:
+            # Para todos os outros casos (SUV, Caminhonete, etc.)
+            return categoria_result
+            
+    # Se não encontrou correspondência exata, verifica os modelos ambíguos
+    # Isso é útil para casos como "Onix LTZ" corresponder a "onix"
+    for modelo_ambiguo, categoria_ambigua in MAPEAMENTO_CATEGORIAS.items():
+        if categoria_ambigua == "hatch,sedan":
+            if normalizar_texto(modelo_ambiguo) in modelo_norm:
                 opcionais_norm = normalizar_texto(opcionais)
                 opcional_chave_norm = normalizar_texto(OPCIONAL_CHAVE_HATCH)
-                
                 if opcional_chave_norm in opcionais_norm:
                     return "Hatch"
                 else:
                     return "Sedan"
-            else:
-                return categoria_result
-    
-    return None
+
+    return None # Nenhuma correspondência encontrada
 
 def inferir_cilindrada(modelo: str) -> Optional[int]:
-    """Infere a cilindrada da moto baseado no modelo"""
-    if not modelo:
-        return None
+    if not modelo: return None
     modelo_norm = normalizar_texto(modelo)
     for mapeado, cilindrada in MAPEAMENTO_CILINDRADAS.items():
-        mapeado_norm = normalizar_texto(mapeado)
-        if mapeado_norm in modelo_norm:
+        if normalizar_texto(mapeado) in modelo_norm:
             return cilindrada
     return None
 
 def converter_preco(valor: Any) -> float:
-    """Converte valor para float, lidando com diferentes formatos"""
-    if not valor:
-        return 0.0
-    
+    if not valor: return 0.0
     try:
-        if isinstance(valor, (int, float)):
-            return float(valor)
-        
+        if isinstance(valor, (int, float)): return float(valor)
         valor_str = str(valor)
-        valor_str = re.sub(r'[^\d,.]', '', valor_str)
-        valor_str = valor_str.replace(',', '.')
-        
+        valor_str = re.sub(r'[^\d,.]', '', valor_str).replace(',', '.')
         parts = valor_str.split('.')
-        if len(parts) > 2:
-            valor_str = ''.join(parts[:-1]) + '.' + parts[-1]
-        
+        if len(parts) > 2: valor_str = ''.join(parts[:-1]) + '.' + parts[-1]
         return float(valor_str) if valor_str else 0.0
-    except (ValueError, TypeError):
-        return 0.0
+    except (ValueError, TypeError): return 0.0
 
 def safe_get(data: Dict, keys: Union[str, List[str]], default: Any = None) -> Any:
-    """Extrai valor de dicionário tentando múltiplas chaves"""
-    if isinstance(keys, str):
-        keys = [keys]
-    
+    if isinstance(keys, str): keys = [keys]
     for key in keys:
         if isinstance(data, dict) and key in data and data[key] is not None:
             return data[key]
-    
     return default
 
 def flatten_list(data: Any) -> List[Dict]:
-    """Achata estruturas de dados para sempre retornar lista de dicionários"""
     if not data: return []
     if isinstance(data, list):
         result = []
         for item in data:
-            if isinstance(item, dict):
-                result.append(item)
-            elif isinstance(item, list):
-                result.extend(flatten_list(item))
+            if isinstance(item, dict): result.append(item)
+            elif isinstance(item, list): result.extend(flatten_list(item))
         return result
-    elif isinstance(data, dict):
-        return [data]
+    elif isinstance(data, dict): return [data]
     return []
 
 # =================== PARSERS =======================
-
+# (O conteúdo das classes BaseParser e dos parsers específicos permanece o mesmo)
 class BaseParser(ABC):
     @abstractmethod
     def can_parse(self, data: Any, url: str) -> bool: pass
     
     @abstractmethod
     def parse(self, data: Any, url: str) -> List[Dict]: pass
-    
-    def extract_photos(self, vehicle_data: Dict) -> List[str]: return []
     
     def normalize_vehicle(self, vehicle: Dict) -> Dict:
         return {
@@ -184,7 +160,7 @@ class AltimusParser(BaseParser):
             opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
             
-            parsed = {
+            parsed = self.normalize_vehicle({
                 "id": v.get("id"), "tipo": v.get("tipo"), "titulo": None, "versao": v.get("versao"),
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
                 "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
@@ -193,8 +169,8 @@ class AltimusParser(BaseParser):
                 "cilindrada": v.get("cilindrada") or inferir_cilindrada(modelo_veiculo),
                 "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": v.get("fotos") or []
-            }
-            parsed_vehicles.append(self.normalize_vehicle(parsed))
+            })
+            parsed_vehicles.append(parsed)
         return parsed_vehicles
     
     def _parse_opcionais(self, opcionais: Any) -> str:
@@ -214,15 +190,15 @@ class AutocertoParser(BaseParser):
             opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
 
-            parsed = {
+            parsed = self.normalize_vehicle({
                 "id": v.get("idveiculo"), "tipo": v.get("tipoveiculo"), "titulo": None, "versao": None,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anomodelo"), "ano_fabricacao": None,
                 "km": v.get("quilometragem"), "cor": v.get("cor"), "combustivel": v.get("combustivel"),
-                "cambio": v.get("cambio"), "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, "portas": v.get("numeroportas"), "categoria": categoria_final,
+                "cambio": v.get("cambio"), "motor": None, "portas": v.get("numeroportas"), "categoria": categoria_final,
                 "cilindrada": inferir_cilindrada(modelo_veiculo), "preco": converter_preco(v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
-            }
-            parsed_vehicles.append(self.normalize_vehicle(parsed))
+            })
+            parsed_vehicles.append(parsed)
         return parsed_vehicles
 
     def _parse_opcionais(self, opcionais: Any) -> str:
@@ -251,15 +227,15 @@ class AutoconfParser(BaseParser):
             opcionais_veiculo = self._parse_features(v.get("FEATURES"))
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
 
-            parsed = {
+            parsed = self.normalize_vehicle({
                 "id": v.get("ID"), "tipo": v.get("CATEGORY"), "titulo": None, "versao": v.get("VERSION"),
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
                 "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
                 "categoria": categoria_final or v.get("BODY"), "cilindrada": inferir_cilindrada(v.get("VERSION") or modelo_veiculo),
                 "preco": converter_preco(v.get("PRICE")), "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
-            }
-            parsed_vehicles.append(self.normalize_vehicle(parsed))
+            })
+            parsed_vehicles.append(parsed)
         return parsed_vehicles
     
     def _parse_features(self, features: Any) -> str:
@@ -271,11 +247,9 @@ class AutoconfParser(BaseParser):
     def extract_photos(self, v: Dict) -> List[str]:
         images = v.get("IMAGES")
         if not images: return []
-        if isinstance(images, list):
-            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and "IMAGE_URL" in img]
-        if isinstance(images, dict) and "IMAGE_URL" in images:
-            return [images["IMAGE_URL"]]
-        return []
+        if isinstance(images, dict) and "IMAGE" in images: images = images["IMAGE"]
+        if not isinstance(images, list): images = [images]
+        return [img.get("URL") for img in images if isinstance(img, dict) and "URL" in img]
 
 class RevendamaisParser(AutoconfParser):
     def can_parse(self, data: Any, url: str) -> bool:
@@ -297,7 +271,7 @@ class RevendamaisParser(AutoconfParser):
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
             tipo_veiculo = "MOTO" if v.get("CATEGORY", "").lower() == "motocicleta" else v.get("CATEGORY")
 
-            parsed = {
+            parsed = self.normalize_vehicle({
                 "id": v.get("ID"), "tipo": tipo_veiculo, "titulo": v.get("TITLE"), "versao": None,
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"),
                 "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
@@ -305,8 +279,8 @@ class RevendamaisParser(AutoconfParser):
                 "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
                 "cilindrada": inferir_cilindrada(modelo_veiculo), "preco": converter_preco(v.get("PRICE")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
-            }
-            parsed_vehicles.append(self.normalize_vehicle(parsed))
+            })
+            parsed_vehicles.append(parsed)
         return parsed_vehicles
 
 class BoomParser(BaseParser):
@@ -328,7 +302,7 @@ class BoomParser(BaseParser):
             opcionais_veiculo = self._parse_opcionais(safe_get(v, ["opcionais", "options", "extras", "features", "FEATURES"]))
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
 
-            parsed = {
+            parsed = self.normalize_vehicle({
                 "id": safe_get(v, ["id", "ID", "codigo", "cod"]), "tipo": safe_get(v, ["tipo", "type", "categoria_veiculo", "CATEGORY"]),
                 "titulo": safe_get(v, ["titulo", "title", "TITLE"]), "versao": safe_get(v, ["versao", "version", "variant", "VERSION"]),
                 "marca": safe_get(v, ["marca", "brand", "fabricante", "MAKE"]), "modelo": modelo_veiculo,
@@ -341,8 +315,8 @@ class BoomParser(BaseParser):
                 "cilindrada": safe_get(v, ["cilindrada", "displacement", "engine_size"]) or inferir_cilindrada(modelo_veiculo),
                 "preco": converter_preco(safe_get(v, ["valor", "valorVenda", "preco", "price", "value", "PRICE"])),
                 "opcionais": opcionais_veiculo, "fotos": self._parse_fotos(v)
-            }
-            parsed_vehicles.append(self.normalize_vehicle(parsed))
+            })
+            parsed_vehicles.append(parsed)
         return parsed_vehicles
     
     def _looks_like_vehicle(self, data: Dict) -> bool: return any(field in data for field in ['modelo', 'model', 'marca', 'brand', 'preco', 'price', 'ano', 'year'])
@@ -388,18 +362,14 @@ class UnifiedVehicleFetcher:
         try:
             response = requests.get(url, timeout=30)
             response.raise_for_status()
-            
             data, format_type = self.detect_format(response.content, url)
             print(f"[INFO] Formato detectado: {format_type}")
-            
             for parser in self.parsers:
                 if parser.can_parse(data, url):
                     print(f"[INFO] Usando parser: {parser.__class__.__name__}")
                     return parser.parse(data, url)
-            
             print(f"[AVISO] Nenhum parser adequado encontrado para URL: {url}")
             return []
-            
         except requests.RequestException as e: print(f"[ERRO] Erro de requisição para URL {url}: {e}"); return []
         except Exception as e: print(f"[ERRO] Erro crítico ao processar URL {url}: {e}"); return []
     
@@ -434,7 +404,7 @@ def fetch_and_convert_xml():
 if __name__ == "__main__":
     result = fetch_and_convert_xml()
     
-    if result:
+    if result and 'veiculos' in result:
       total = result.get('_total_count', 0)
       print(f"\n{'='*50}\nRESUMO DO PROCESSAMENTO\n{'='*50}")
       print(f"Total de veículos: {total}")
@@ -443,5 +413,5 @@ if __name__ == "__main__":
       
       if total > 0:
           print(f"\nExemplo dos primeiros 5 veículos:")
-          for i, v in enumerate(result.get('veiculos', [])[:5], 1):
+          for i, v in enumerate(result['veiculos'][:5], 1):
               print(f"{i}. {v.get('marca', 'N/A')} {v.get('modelo', 'N/A')} ({v.get('categoria', 'N/A')}) {v.get('ano', 'N/A')} - R$ {v.get('preco', 0.0):,.2f}")
