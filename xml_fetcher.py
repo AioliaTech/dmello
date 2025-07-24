@@ -348,7 +348,7 @@ class AutoconfParser(BaseParser):
                 "cambio": v.get("gear") or v.get("GEAR"),
                 "motor": v.get("MOTOR"),
                 "portas": v.get("DOORS"),
-                "categoria": v.get("BODY"),
+                "categoria": v.get("BODY") or inferir_categoria(v.get("MODEL")),
                 "cilindrada": inferir_cilindrada(v.get("VERSION") or v.get("MODEL")),
                 "preco": converter_preco(v.get("PRICE")),
                 "opcionais": self._parse_features(v.get("FEATURES")),
@@ -388,10 +388,32 @@ class AutoconfParser(BaseParser):
         
         return fotos
 
+# =================== CLASSE ALTERADA =======================
 class RevendamaisParser(AutoconfParser):
     """Parser para formato Revendamais (similar ao Autoconf mas com campos extras)"""
     
+    def can_parse(self, data: Any, url: str) -> bool:
+        # Primeiro, verifica se a estrutura básica do Autoconf é válida.
+        if not super().can_parse(data, url):
+            return False
+        
+        # Agora, verifica uma característica específica do Revendamais.
+        # Por exemplo, a presença da tag <TITLE> no primeiro veículo.
+        try:
+            ads = data.get("ADS", {}).get("AD", [])
+            if isinstance(ads, dict):
+                ads = [ads]
+            
+            # Se houver veículos, verifica se o primeiro tem a tag 'TITLE'
+            if ads and 'TITLE' in ads[0]:
+                return True
+        except (IndexError, KeyError):
+            return False
+            
+        return False
+
     def parse(self, data: Any, url: str) -> List[Dict]:
+        # O método parse() continua o mesmo, pois já estava correto.
         ads = data["ADS"]["AD"]
         if isinstance(ads, dict):
             ads = [ads]
@@ -413,7 +435,7 @@ class RevendamaisParser(AutoconfParser):
                 "cambio": v.get("GEAR"),
                 "motor": v.get("MOTOR"),
                 "portas": v.get("DOORS"),
-                "categoria": v.get("BODY_TYPE"),
+                "categoria": v.get("BODY_TYPE") or inferir_categoria(v.get("MODEL")),
                 "cilindrada": inferir_cilindrada(v.get("MODEL")),
                 "preco": converter_preco(v.get("PRICE")),
                 "opcionais": v.get("ACCESSORIES") or "",
@@ -532,19 +554,20 @@ class BoomParser(BaseParser):
         
         return result
 
-# =================== SISTEMA PRINCIPAL =======================
+# =================== SISTEMA PRINCIPAL (ALTERADO) =======================
 
 class UnifiedVehicleFetcher:
     """Sistema unificado para buscar e processar veículos de múltiplas fontes"""
     
     def __init__(self):
         """Inicializa o fetcher com todos os parsers disponíveis"""
+        # A ORDEM IMPORTA: coloque os parsers mais específicos primeiro.
         self.parsers = [
             AltimusParser(),
             AutocertoParser(),
-            AutoconfParser(),
-            RevendamaisParser(),
-            BoomParser(),  # Deve ser o último pois é o mais genérico
+            RevendamaisParser(),  # <-- ESPECÍFICO PRIMEIRO
+            AutoconfParser(),     # <-- GENÉRICO DEPOIS
+            BoomParser(),         # Deve ser o último pois é o mais genérico de todos
         ]
         print("[INFO] Sistema unificado iniciado - detecção automática ativada")
     
