@@ -278,7 +278,6 @@ class AutoconfParser(BaseParser):
         elif isinstance(images, dict) and images.get("IMAGE_URL"):
             return [images["IMAGE_URL"]]
     
-    return []
 
 class RevendamaisParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
