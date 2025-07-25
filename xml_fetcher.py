@@ -267,11 +267,18 @@ class AutoconfParser(BaseParser):
         return str(features)
     
     def extract_photos(self, v: Dict) -> List[str]:
-        images = v.get("IMAGES")
+        images = v.get("IMAGES", [])
         if not images: return []
-        if isinstance(images, dict) and "IMAGE" in images: images = images["IMAGE"]
-        if not isinstance(images, list): images = [images]
-        return [img.get("URL") for img in images if isinstance(img, dict) and "URL" in img]
+    
+        # Se é uma lista (múltiplos IMAGES)
+        if isinstance(images, list):
+            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
+    
+        # Se é um dict único
+        elif isinstance(images, dict) and images.get("IMAGE_URL"):
+            return [images["IMAGE_URL"]]
+    
+    return []
 
 class RevendamaisParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
