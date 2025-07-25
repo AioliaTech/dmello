@@ -234,9 +234,9 @@ class AutocertoParser(BaseParser):
 
 class AutoconfParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
-    base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
-    if not base_check: return False
-    return "autoconf" in url or ("revendamais.com.br" not in url)
+        base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
+        if not base_check: return False
+        return "autoconf" in url or ("revendamais.com.br" not in url)
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         ads = data["ADS"]["AD"]
