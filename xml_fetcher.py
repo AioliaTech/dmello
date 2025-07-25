@@ -249,7 +249,7 @@ class AutoconfParser(BaseParser):
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
 
             parsed = self.normalize_vehicle({
-                "id": v.get("ID"), "tipo": v.get("CATEGORY"), "titulo": None, "versao": v.get("VERSION"),
+                "id": v.get("ID"), "tipo": ("carro" if v.get("CATEGORY") == "carros" else "moto" if v.get("CATEGORY") == "motos" else v.get("CATEGORY")), "titulo": None, "versao": v.get("VERSION"),
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
                 "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
