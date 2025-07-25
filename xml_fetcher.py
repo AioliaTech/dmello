@@ -250,7 +250,7 @@ class AutoconfParser(BaseParser):
 
             parsed = self.normalize_vehicle({
                 "id": v.get("ID"), "tipo": ("carro" if v.get("CATEGORY") == "carros" else "moto" if v.get("CATEGORY") == "motos" else v.get("CATEGORY")), "titulo": None, 
-                "titulo": None, "versao": (' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|gasolina|manual|automático|4p)\b', '', v.get('VERSION', ''), flags=re.IGNORECASE).split()).strip()) if v.get("VERSION") else None,
+                "titulo": None, "versao": (' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|aut|aut.|dies|dies.|mec.|mec|gasolina|manual|automático|4p)\b', '', v.get('VERSION', ''), flags=re.IGNORECASE).split()).strip()) if v.get("VERSION") else None,
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
                 "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
