@@ -209,7 +209,7 @@ class AutocertoParser(BaseParser):
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
 
             parsed = self.normalize_vehicle({
-                "id": v.get("idveiculo"), "tipo": v.get("tipoveiculo"), "titulo": None, "versao": None,
+                "id": v.get("idveiculo"), "tipo": v.get("tipoveiculo"), "titulo": None, "versao": (f"{v.get('modelo', '').strip()} {' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|gasolina|manual|automático)\b', '', v.get('versao', ''), flags=re.IGNORECASE).split())}".strip()) if v.get("versao") else v.get("modelo", "").strip() or None,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anomodelo"), "ano_fabricacao": None,
                 "km": v.get("quilometragem"), "cor": v.get("cor"), "combustivel": v.get("combustivel"),
                 "cambio": v.get("cambio"), "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, "portas": v.get("numeroportas"), "portas": v.get("numeroportas"), "categoria": categoria_final,
