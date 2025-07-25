@@ -179,10 +179,10 @@ class AltimusParser(BaseParser):
             categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
             
             parsed = self.normalize_vehicle({
-                "id": v.get("id"), "tipo": v.get("tipo"), "titulo": None, "versao": v.get("versao"),
+                "id": v.get("id"), "tipo": "carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo"), "titulo": None, "versao": v.get("versao"),
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
                 "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
-                "cor": v.get("cor"), "combustivel": v.get("combustivel"), "cambio": v.get("cambio"),
+                "cor": v.get("cor"), "combustivel": v.get("combustivel"), "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automatico" in str(v.get("cambio", "")).lower() else v.get("cambio")),
                 "motor": v.get("motor"), "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
                 "cilindrada": v.get("cilindrada") or inferir_cilindrada(modelo_veiculo),
                 "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
