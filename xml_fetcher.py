@@ -272,14 +272,11 @@ class AutoconfParser(BaseParser):
         if not isinstance(images, list): images = [images]
         return [img.get("URL") for img in images if isinstance(img, dict) and "URL" in img]
 
-class RevendamaisParser(AutoconfParser):
+class RevendamaisParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
-        if not super().can_parse(data, url): return False
-        try:
-            ads = data.get("ADS", {}).get("AD", [])
-            if isinstance(ads, dict): ads = [ads]
-            return bool(ads and 'TITLE' in ads[0])
-        except (IndexError, KeyError): return False
+       base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
+       if not base_check: return False
+       return "revendamais" in url
 
     def parse(self, data: Any, url: str) -> List[Dict]:
         ads = data["ADS"]["AD"]
