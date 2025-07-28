@@ -23,8 +23,8 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "marca",
     "modelo",
+    "marca",
     "categoria"         # Mais importante (nunca remove sozinho)
 ]
 
@@ -483,11 +483,38 @@ class VehicleSearchEngine:
         # Fallback normal: tentar removendo parâmetros progressivamente conforme nova ordem
         for filter_to_remove in FALLBACK_PRIORITY:
             if filter_to_remove == "KmMax" and current_kmmax:
-                current_kmmax = None
-                removed_filters.append("KmMax")
+                # Verifica se existem veículos que atendem ao KmMax antes de remover
+                test_vehicles = self.apply_filters(vehicles, current_filters)
+                vehicles_within_km_limit = [
+                    v for v in test_vehicles
+                    if self.convert_km(v.get("km")) is not None and
+                    self.convert_km(v.get("km")) <= int(current_kmmax)
+                ]
+                
+                # Só remove KmMax se realmente não há veículos dentro do limite
+                if not vehicles_within_km_limit:
+                    current_kmmax = None
+                    removed_filters.append("KmMax")
+                else:
+                    # Pula a remoção do KmMax pois há veículos dentro do limite
+                    continue
+                    
             elif filter_to_remove == "AnoMax" and current_anomax:
-                current_anomax = None
-                removed_filters.append("AnoMax")
+                # Verifica se existem veículos que atendem ao AnoMax antes de remover
+                test_vehicles = self.apply_filters(vehicles, current_filters)
+                vehicles_within_year_limit = [
+                    v for v in test_vehicles
+                    if self.convert_year(v.get("ano")) is not None and
+                    self.convert_year(v.get("ano")) <= int(current_anomax)
+                ]
+                
+                # Só remove AnoMax se realmente não há veículos dentro do limite
+                if not vehicles_within_year_limit:
+                    current_anomax = None
+                    removed_filters.append("AnoMax")
+                else:
+                    # Pula a remoção do AnoMax pois há veículos dentro do limite
+                    continue
             elif filter_to_remove in current_filters:
                 # REGRA: Não faz fallback se sobrar apenas 1 filtro
                 remaining_filters = [k for k, v in current_filters.items() if v]
@@ -673,8 +700,8 @@ def get_data(request: Request):
                 if isinstance(fotos, list):
                     vehicle_found["fotos"] = fotos[:1] if fotos else []
             
-            # Remove opcionais se não foi pesquisado por opcionais
-            if "opcionais" not in filters and "opcionais" in vehicle_found:
+            # Remove opcionais se não foi pesquisado por opcionais OU por ID
+            if "opcionais" not in filters and not id_param and "opcionais" in vehicle_found:
                 del vehicle_found["opcionais"]
             
             return JSONResponse(content={
@@ -719,8 +746,8 @@ def get_data(request: Request):
                 if isinstance(fotos, list):
                     vehicle["fotos"] = fotos[:1] if fotos else []
         
-        # Remove opcionais se não foi pesquisado por opcionais
-        if "opcionais" not in filters:
+        # Remove opcionais se não foi pesquisado por opcionais OU por ID
+        if "opcionais" not in filters and not id_param:
             for vehicle in sorted_vehicles:
                 if "opcionais" in vehicle:
                     del vehicle["opcionais"]
@@ -744,8 +771,8 @@ def get_data(request: Request):
             if isinstance(fotos, list):
                 vehicle["fotos"] = fotos[:1] if fotos else []
     
-    # Remove opcionais se não foi pesquisado por opcionais
-    if "opcionais" not in filters and result.vehicles:
+    # Remove opcionais se não foi pesquisado por opcionais OU por ID
+    if "opcionais" not in filters and not id_param and result.vehicles:
         for vehicle in result.vehicles:
             if "opcionais" in vehicle:
                 del vehicle["opcionais"]
