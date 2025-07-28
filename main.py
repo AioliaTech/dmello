@@ -23,8 +23,8 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "modelo",
     "marca",
+    "modelo",
     "categoria"         # Mais importante (nunca remove sozinho)
 ]
 
