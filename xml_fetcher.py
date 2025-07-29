@@ -5,7 +5,7 @@ import os
 import re
 from datetime import datetime
 from unidecode import unidecode
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union, Tuple
 from abc import ABC, abstractmethod
 
 # =================== CONFIGURAÇÕES GLOBAIS =======================
@@ -55,9 +55,188 @@ for model in minivan_models: MAPEAMENTO_CATEGORIAS[model] = "Minivan"
 offroad_models = ["bandeirante", "bronco", "defender", "grand vitara", "jimny", "samurai", "troller", "wrangler"]
 for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 
-MAPEAMENTO_CILINDRADAS = {
-    "CG 150 TITAN": 150, "NXR 150 BROS": 150, "NXR 150 BROS": 150, "CG 150 FAN": 150, "YBR 150": 150, "FZ25": 250, "GK350": 350, "VERSYS-X 300": 300, "mt-07": 700, "g 310": 300, "f 750 gs": 850, "f 850 gs": 850, "f 900": 900, "r 1250": 1250, "r 1300": 1300, "r 18": 1800, "k 1300": 1300, "k 1600": 1650, "s 1000": 1000, "g 650 gs": 650, "cb 300": 300, "cb 500": 500, "cb 650": 650, "cb 1000r": 1000, "cb twister": 300, "twister": 300, "cbr 250": 250, "cbr 500": 500, "cbr 600": 600, "cbr 650": 650, "cbr 1000": 1000, "hornet 600": 600, "cb 600f": 600, "xre 190": 190, "xre 300": 300, "xre 300 sahara": 300, "sahara 300": 300, "sahara 300 rally": 300, "nxr 160": 160, "bros 160": 160, "cg 160": 160, "cg 160 titan": 160, "cg 160 fan": 160, "cg 160 start": 160, "cg 160 titan s": 160, "cg 125": 125, "cg 125 fan ks": 125, "biz 125": 125, "biz 125 es": 125, "biz 110": 110, "pop 110": 110, "pop 110i": 110, "pcx 150": 150, "pcx 160": 160, "xj6": 600, "mt 03": 300, "mt 07": 690, "mt 09": 890, "mt 01": 1700, "fazer 150": 150, "fazer 250": 250, "ys 250": 250, "factor 125": 125, "factor 150": 150, "xtz 150": 150, "xtz 250": 250, "xtz 250 tenere": 250, "tenere 250": 250, "lander 250": 250, "yzf r3": 300, "yzf r-3": 300, "r15": 150, "r1": 1000, "nmax 160": 160, "xmax 250": 250, "gs500": 500, "bandit 600": 600, "bandit 650": 650, "bandit 1250": 1250, "gsx 650f": 650, "gsx-s 750": 750, "gsx-s 1000": 1000, "hayabusa": 1350, "gixxer 250": 250, "burgman 125": 125, "z300": 300, "z400": 400, "z650": 650, "z750": 750, "z800": 800, "z900": 950, "z1000": 1000, "ninja 300": 300, "ninja 400": 400, "ninja 650": 650, "ninja 1000": 1050, "ninja zx-10r": 1000, "er6n": 650, "versys 300": 300, "versys 650": 650, "xt 660": 660, "meteor 350": 350, "classic 350": 350, "hunter 350": 350, "himalayan": 400, "interceptor 650": 650, "continental gt 650": 650, "tiger 800": 800, "tiger 900": 900, "street triple": 750, "speed triple": 1050, "bonneville": 900, "trident 660": 660, "monster 797": 800, "monster 821": 820, "monster 937": 940, "panigale v2": 950, "panigale v4": 1100, "iron 883": 883, "forty eight": 1200, "sportster s": 1250, "fat bob": 1140, "road glide": 2150, "street glide": 1750, "next 300": 300, "commander 250": 250, "dafra citycom 300": 300, "dr 160": 160, "dr 160 s": 160, "cforce 1000": 1000, "trx 420": 420, "t350 x": 350, "xr300l tornado": 300, "fz25 fazer": 250, "fz15 fazer": 150, "biz es": 125, "elite 125": 125, "crf 230f": 230, "cg150 fan": 150, "cg150 titan": 150, "diavel 1260": 1260, "YZF R-6": 600, "MT-03": 300, "MT03": 300, "ER-6N": 650, "xt 600": 600, "cg 125": 125
+# =================== MAPEAMENTOS DE MOTOCICLETAS =======================
+
+# Mapeamento combinado: cilindrada e categoria
+MAPEAMENTO_MOTOS = {
+    # Street/Urbanas (commuter básicas e econômicas)
+    "cg 150 titan": (150, "street"),
+    "cg 160 titan": (160, "street"),
+    "cg 125": (125, "street"),
+    "cg 160": (160, "street"),
+    "cg 160 fan": (160, "street"),
+    "cg 160 start": (160, "street"),
+    "cg 160 titan s": (160, "street"),
+    "cg 125 fan ks": (125, "street"),
+    "cg150 fan": (150, "street"),
+    "cg150 titan": (150, "street"),
+    "ybr 150": (150, "street"),
+    "ybr 125": (125, "street"),
+    "factor 125": (125, "street"),
+    "factor 150": (150, "street"),
+    "fz25": (250, "street"),
+    "fz25 fazer": (250, "street"),
+    "fz15 fazer": (150, "street"),
+    "fazer 150": (150, "street"),
+    "fazer 250": (250, "street"),
+    "ys 250": (250, "street"),
+    "cb 300": (300, "street"),
+    "cb twister": (300, "street"),
+    "twister": (300, "street"),
+    "next 300": (300, "street"),
+    
+    # Scooter (transmissão automática, design step-through)
+    "biz 125": (125, "scooter"),
+    "biz 125 es": (125, "scooter"),
+    "biz 110": (110, "scooter"),
+    "biz es": (125, "scooter"),
+    "pop 110": (110, "scooter"),
+    "pop 110i": (110, "scooter"),
+    "pcx 150": (150, "scooter"),
+    "pcx 160": (160, "scooter"),
+    "elite 125": (125, "scooter"),
+    "nmax 160": (160, "scooter"),
+    "xmax 250": (250, "scooter"),
+    "burgman 125": (125, "scooter"),
+    "dafra citycom 300": (300, "scooter"),
+    "citycom": (300, "scooter"),
+    
+    # Trail/Offroad (dual-sport, suspensão robusta)
+    "nxr 150 bros": (150, "trail"),
+    "nxr 160": (160, "trail"),
+    "bros 160": (160, "trail"),
+    "nxr 160 bros": (160, "trail"),
+    "xre 190": (190, "trail"),
+    "xre 300": (300, "trail"),
+    "xre 300 sahara": (300, "trail"),
+    "sahara 300": (300, "trail"),
+    "sahara 300 rally": (300, "trail"),
+    "xr300l tornado": (300, "trail"),
+    "crf 230f": (230, "offroad"),
+    "dr 160": (160, "trail"),
+    "dr 160 s": (160, "trail"),
+    "xtz 150": (150, "trail"),
+    "xtz 250": (250, "trail"),
+    "xtz 250 tenere": (250, "trail"),
+    "tenere 250": (250, "trail"),
+    "lander 250": (250, "trail"),
+    
+    # BigTrail/Adventure (alta cilindrada, touring)
+    "g 310": (300, "bigtrail"),
+    "g 310 gs": (300, "bigtrail"),
+    "f 750 gs": (850, "bigtrail"),
+    "f 850 gs": (850, "bigtrail"),
+    "f 900": (900, "bigtrail"),
+    "f 900 gs": (900, "bigtrail"),
+    "r 1250": (1250, "bigtrail"),
+    "r 1250 gs": (1250, "bigtrail"),
+    "r 1300": (1300, "bigtrail"),
+    "r 1300 gs": (1300, "bigtrail"),
+    "g 650 gs": (650, "bigtrail"),
+    "versys 300": (300, "bigtrail"),
+    "versys 650": (650, "bigtrail"),
+    "versys-x 300": (300, "bigtrail"),
+    "tiger 800": (800, "bigtrail"),
+    "tiger 900": (900, "bigtrail"),
+    "himalayan": (400, "bigtrail"),
+    
+    # Esportiva Carenada (supersport, carenagem completa)
+    "cbr 250": (250, "esportiva carenada"),
+    "cbr 300": (300, "esportiva carenada"),
+    "cbr 500": (500, "esportiva carenada"),
+    "cbr 600": (600, "esportiva carenada"),
+    "cbr 650": (650, "esportiva carenada"),
+    "cbr 1000": (1000, "esportiva carenada"),
+    "cbr 1000r": (1000, "esportiva carenada"),
+    "yzf r3": (300, "esportiva carenada"),
+    "yzf r-3": (300, "esportiva carenada"),
+    "yzf r-6": (600, "esportiva carenada"),
+    "r15": (150, "esportiva carenada"),
+    "r1": (1000, "esportiva carenada"),
+    "ninja 300": (300, "esportiva carenada"),
+    "ninja 400": (400, "esportiva carenada"),
+    "ninja 650": (650, "esportiva carenada"),
+    "ninja 1000": (1050, "esportiva carenada"),
+    "ninja zx-10r": (1000, "esportiva carenada"),
+    "s 1000": (1000, "esportiva carenada"),
+    "s 1000 rr": (1000, "esportiva carenada"),
+    "panigale v2": (950, "esportiva carenada"),
+    "panigale v4": (1100, "esportiva carenada"),
+    "hayabusa": (1350, "esportiva carenada"),
+    
+    # Esportiva Naked (naked sport, sem carenagem)
+    "mt 03": (300, "esportiva naked"),
+    "mt-03": (300, "esportiva naked"),
+    "mt03": (300, "esportiva naked"),
+    "mt 07": (690, "esportiva naked"),
+    "mt-07": (690, "esportiva naked"),
+    "mt 09": (890, "esportiva naked"),
+    "mt-09": (890, "esportiva naked"),
+    "cb 500": (500, "esportiva naked"),
+    "cb 650": (650, "esportiva naked"),
+    "cb 1000r": (1000, "esportiva naked"),
+    "hornet 600": (600, "esportiva naked"),
+    "cb 600f": (600, "esportiva naked"),
+    "xj6": (600, "esportiva naked"),
+    "z300": (300, "esportiva naked"),
+    "z400": (400, "esportiva naked"),
+    "z650": (650, "esportiva naked"),
+    "z750": (750, "esportiva naked"),
+    "z800": (800, "esportiva naked"),
+    "z900": (950, "esportiva naked"),
+    "z1000": (1000, "esportiva naked"),
+    "er6n": (650, "esportiva naked"),
+    "er-6n": (650, "esportiva naked"),
+    "bandit 600": (600, "esportiva naked"),
+    "bandit 650": (650, "esportiva naked"),
+    "bandit 1250": (1250, "esportiva naked"),
+    "gsx 650f": (650, "esportiva naked"),
+    "gsx-s 750": (750, "esportiva naked"),
+    "gsx-s 1000": (1000, "esportiva naked"),
+    "gixxer 250": (250, "esportiva naked"),
+    "gs500": (500, "esportiva naked"),
+    "monster 797": (800, "esportiva naked"),
+    "monster 821": (820, "esportiva naked"),
+    "monster 937": (940, "esportiva naked"),
+    "street triple": (750, "esportiva naked"),
+    "speed triple": (1050, "esportiva naked"),
+    "trident 660": (660, "esportiva naked"),
+    
+    # Custom/Cruiser (posição relaxada, estética clássica)
+    "iron 883": (883, "custom"),
+    "forty eight": (1200, "custom"),
+    "sportster s": (1250, "custom"),
+    "fat bob": (1140, "custom"),
+    "meteor 350": (350, "custom"),
+    "classic 350": (350, "custom"),
+    "hunter 350": (350, "custom"),
+    "interceptor 650": (650, "custom"),
+    "continental gt 650": (650, "custom"),
+    "diavel 1260": (1260, "custom"),
+    "r 18": (1800, "custom"),
+    "bonneville": (900, "custom"),
+    "mt 01": (1700, "custom"),
+    
+    # Touring (longas distâncias, conforto)
+    "road glide": (2150, "touring"),
+    "street glide": (1750, "touring"),
+    "k 1300": (1300, "touring"),
+    "k 1600": (1650, "touring"),
+    "xt 660": (660, "touring"),
+    "xt 600": (600, "touring"),
+    
+    # ATV/Quadriciclo
+    "cforce 1000": (1000, "custom"),
+    "trx 420": (420, "custom"),
+    "t350 x": (350, "custom"),
+    
+    # Modelos especiais
+    "commander 250": (250, "street"),
+    "gk350": (350, "street"),
 }
+
+# Mapeamento legado apenas para cilindrada (compatibilidade)
+MAPEAMENTO_CILINDRADAS = {modelo: cilindrada for modelo, (cilindrada, _) in MAPEAMENTO_MOTOS.items()}
 
 # =================== UTILS =======================
 
@@ -108,13 +287,32 @@ def definir_categoria_veiculo(modelo: str, opcionais: str = "") -> Optional[str]
 
     return None # Nenhuma correspondência encontrada
 
-def inferir_cilindrada(modelo: str) -> Optional[int]:
-    if not modelo: return None
+def inferir_cilindrada_e_categoria_moto(modelo: str) -> Tuple[Optional[int], Optional[str]]:
+    """
+    Infere cilindrada e categoria para motocicletas baseado no modelo.
+    Retorna uma tupla (cilindrada, categoria).
+    """
+    if not modelo: 
+        return None, None
+    
     modelo_norm = normalizar_texto(modelo)
-    for mapeado, cilindrada in MAPEAMENTO_CILINDRADAS.items():
-        if normalizar_texto(mapeado) in modelo_norm:
-            return cilindrada
-    return None
+    
+    # Busca exata primeiro
+    if modelo_norm in MAPEAMENTO_MOTOS:
+        cilindrada, categoria = MAPEAMENTO_MOTOS[modelo_norm]
+        return cilindrada, categoria
+    
+    # Busca por correspondência parcial
+    for modelo_mapeado, (cilindrada, categoria) in MAPEAMENTO_MOTOS.items():
+        if normalizar_texto(modelo_mapeado) in modelo_norm:
+            return cilindrada, categoria
+    
+    return None, None
+
+def inferir_cilindrada(modelo: str) -> Optional[int]:
+    """Função legada para compatibilidade - retorna apenas cilindrada"""
+    cilindrada, _ = inferir_cilindrada_e_categoria_moto(modelo)
+    return cilindrada
 
 def converter_preco(valor: Any) -> float:
     if not valor: return 0.0
@@ -146,7 +344,7 @@ def flatten_list(data: Any) -> List[Dict]:
     return []
 
 # =================== PARSERS =======================
-# (O conteúdo das classes BaseParser e dos parsers específicos permanece o mesmo)
+
 class BaseParser(ABC):
     @abstractmethod
     def can_parse(self, data: Any, url: str) -> bool: pass
@@ -176,15 +374,30 @@ class AltimusParser(BaseParser):
         for v in veiculos:
             modelo_veiculo = v.get("modelo")
             opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
-            categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+            
+            # Determina se é moto ou carro
+            tipo_veiculo = v.get("tipo", "").lower()
+            is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
+            
+            if is_moto:
+                # Para motos: usa o novo sistema
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
+            else:
+                # Para carros: usa o sistema existente
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = v.get("cilindrada") or inferir_cilindrada(modelo_veiculo)
             
             parsed = self.normalize_vehicle({
-                "id": v.get("id"), "tipo": "carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo"), "titulo": None, "versao": v.get("versao"),
+                "id": v.get("id"), 
+                "tipo": "moto" if is_moto else ("carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo")), 
+                "titulo": None, "versao": v.get("versao"),
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
                 "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
-                "cor": v.get("cor"), "combustivel": v.get("combustivel"), "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
-                "motor": re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))).group(1) if re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))) else None, "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
-                "cilindrada": v.get("cilindrada") or inferir_cilindrada(modelo_veiculo),
+                "cor": v.get("cor"), "combustivel": v.get("combustivel"), 
+                "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
+                "motor": re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))).group(1) if re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))) else None, 
+                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
+                "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": v.get("fotos") or []
             })
@@ -206,14 +419,28 @@ class AutocertoParser(BaseParser):
         for v in veiculos:
             modelo_veiculo = v.get("modelo")
             opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
-            categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+            
+            # Determina se é moto ou carro
+            tipo_veiculo = v.get("tipoveiculo", "").lower()
+            is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = inferir_cilindrada(modelo_veiculo)
 
             parsed = self.normalize_vehicle({
-                "id": v.get("idveiculo"), "tipo": v.get("tipoveiculo"), "titulo": None, "versao": ((v.get('modelo', '').strip() + ' ' + ' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|gasolina|manual|automático|4p)\b', '', v.get('versao', ''), flags=re.IGNORECASE).split())).strip()) if v.get("versao") else (v.get("modelo", "").strip() or None),
+                "id": v.get("idveiculo"), 
+                "tipo": "moto" if is_moto else v.get("tipoveiculo"), 
+                "titulo": None, 
+                "versao": ((v.get('modelo', '').strip() + ' ' + ' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|gasolina|manual|automático|4p)\b', '', v.get('versao', ''), flags=re.IGNORECASE).split())).strip()) if v.get("versao") else (v.get("modelo", "").strip() or None),
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anomodelo"), "ano_fabricacao": None,
                 "km": v.get("quilometragem"), "cor": v.get("cor"), "combustivel": v.get("combustivel"),
-                "cambio": v.get("cambio"), "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, "portas": v.get("numeroportas"), "portas": v.get("numeroportas"), "categoria": categoria_final,
-                "cilindrada": inferir_cilindrada(modelo_veiculo), "preco": converter_preco(v.get("preco")),
+                "cambio": v.get("cambio"), 
+                "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, 
+                "portas": v.get("numeroportas"), "categoria": categoria_final,
+                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
             parsed_vehicles.append(parsed)
@@ -246,15 +473,29 @@ class AutoconfParser(BaseParser):
         for v in ads:
             modelo_veiculo = v.get("MODEL")
             opcionais_veiculo = self._parse_features(v.get("FEATURES"))
-            categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+            
+            # Determina se é moto ou carro
+            categoria_veiculo = v.get("CATEGORY", "").lower()
+            is_moto = categoria_veiculo == "motos" or "moto" in categoria_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
+                tipo_final = "moto"
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = inferir_cilindrada(modelo_veiculo)
+                tipo_final = "carro" if categoria_veiculo == "carros" else categoria_veiculo
 
             parsed = self.normalize_vehicle({
-                "id": v.get("ID"), "tipo": ("carro" if v.get("CATEGORY") == "carros" else "moto" if v.get("CATEGORY") == "motos" else v.get("CATEGORY")), "titulo": None, 
-                "titulo": None, "versao": (' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|aut|aut.|dies|dies.|mec.|mec|gasolina|manual|automático|4p)\b', '', v.get('VERSION', ''), flags=re.IGNORECASE).split()).strip()) if v.get("VERSION") else None,
+                "id": v.get("ID"), 
+                "tipo": tipo_final,
+                "titulo": None, 
+                "versao": (' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|aut|aut.|dies|dies.|mec.|mec|gasolina|manual|automático|4p)\b', '', v.get('VERSION', ''), flags=re.IGNORECASE).split()).strip()) if v.get("VERSION") else None,
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
                 "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
-                "categoria": categoria_final or v.get("BODY"), "cilindrada": inferir_cilindrada(v.get("VERSION") or modelo_veiculo),
+                "categoria": categoria_final or v.get("BODY"), 
+                "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("PRICE")), "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
             parsed_vehicles.append(parsed)
@@ -277,7 +518,8 @@ class AutoconfParser(BaseParser):
         # Se é um dict único
         elif isinstance(images, dict) and images.get("IMAGE_URL"):
             return [images["IMAGE_URL"]]
-    
+        
+        return []
 
 class RevendamaisParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
@@ -293,20 +535,41 @@ class RevendamaisParser(BaseParser):
         for v in ads:
             modelo_veiculo = v.get("MODEL")
             opcionais_veiculo = v.get("ACCESSORIES") or ""
-            categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-            tipo_veiculo = "MOTO" if v.get("CATEGORY", "").lower() == "motocicleta" else v.get("CATEGORY")
+            
+            # Determina se é moto ou carro
+            categoria_veiculo = v.get("CATEGORY", "").lower()
+            is_moto = categoria_veiculo == "motocicleta" or "moto" in categoria_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
+                tipo_final = "moto"
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = inferir_cilindrada(modelo_veiculo)
+                tipo_final = v.get("CATEGORY")
 
             parsed = self.normalize_vehicle({
-                "id": v.get("ID"), "tipo": tipo_veiculo, "titulo": v.get("TITLE"), "versao": None,
+                "id": v.get("ID"), "tipo": tipo_final, "titulo": v.get("TITLE"), "versao": None,
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"),
                 "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
                 "combustivel": v.get("FUEL"), "cambio": v.get("GEAR"), "motor": v.get("MOTOR"),
                 "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
-                "cilindrada": inferir_cilindrada(modelo_veiculo), "preco": converter_preco(v.get("PRICE")),
+                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("PRICE")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
             parsed_vehicles.append(parsed)
         return parsed_vehicles
+    
+    def extract_photos(self, v: Dict) -> List[str]:
+        images = v.get("IMAGES", [])
+        if not images: return []
+        
+        if isinstance(images, list):
+            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
+        elif isinstance(images, dict) and images.get("IMAGE_URL"):
+            return [images["IMAGE_URL"]]
+        
+        return []
 
 class BoomParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, (dict, list))
@@ -325,26 +588,44 @@ class BoomParser(BaseParser):
             
             modelo_veiculo = safe_get(v, ["modelo", "model", "nome", "MODEL"])
             opcionais_veiculo = self._parse_opcionais(safe_get(v, ["opcionais", "options", "extras", "features", "FEATURES"]))
-            categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+            
+            # Determina se é moto ou carro baseado em campos disponíveis
+            tipo_veiculo = safe_get(v, ["tipo", "type", "categoria_veiculo", "CATEGORY", "vehicle_type"]) or ""
+            is_moto = any(termo in str(tipo_veiculo).lower() for termo in ["moto", "motocicleta", "motorcycle", "bike"])
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
+                tipo_final = "moto"
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = safe_get(v, ["cilindrada", "displacement", "engine_size"]) or inferir_cilindrada(modelo_veiculo)
+                tipo_final = tipo_veiculo or "carro"
 
             parsed = self.normalize_vehicle({
-                "id": safe_get(v, ["id", "ID", "codigo", "cod"]), "tipo": safe_get(v, ["tipo", "type", "categoria_veiculo", "CATEGORY"]),
-                "titulo": safe_get(v, ["titulo", "title", "TITLE"]), "versao": safe_get(v, ["versao", "version", "variant", "VERSION"]),
-                "marca": safe_get(v, ["marca", "brand", "fabricante", "MAKE"]), "modelo": modelo_veiculo,
+                "id": safe_get(v, ["id", "ID", "codigo", "cod"]), 
+                "tipo": tipo_final,
+                "titulo": safe_get(v, ["titulo", "title", "TITLE"]), 
+                "versao": safe_get(v, ["versao", "version", "variant", "VERSION"]),
+                "marca": safe_get(v, ["marca", "brand", "fabricante", "MAKE"]), 
+                "modelo": modelo_veiculo,
                 "ano": safe_get(v, ["ano_mod", "anoModelo", "ano", "year_model", "ano_modelo", "YEAR"]),
                 "ano_fabricacao": safe_get(v, ["ano_fab", "anoFabricacao", "ano_fabricacao", "year_manufacture", "FABRIC_YEAR"]),
-                "km": safe_get(v, ["km", "quilometragem", "mileage", "kilometers", "MILEAGE"]), "cor": safe_get(v, ["cor", "color", "colour", "COLOR"]),
-                "combustivel": safe_get(v, ["combustivel", "fuel", "fuel_type", "FUEL"]), "cambio": safe_get(v, ["cambio", "transmission", "gear", "GEAR"]),
-                "motor": safe_get(v, ["motor", "engine", "motorization", "MOTOR"]), "portas": safe_get(v, ["portas", "doors", "num_doors", "DOORS"]),
+                "km": safe_get(v, ["km", "quilometragem", "mileage", "kilometers", "MILEAGE"]), 
+                "cor": safe_get(v, ["cor", "color", "colour", "COLOR"]),
+                "combustivel": safe_get(v, ["combustivel", "fuel", "fuel_type", "FUEL"]), 
+                "cambio": safe_get(v, ["cambio", "transmission", "gear", "GEAR"]),
+                "motor": safe_get(v, ["motor", "engine", "motorization", "MOTOR"]), 
+                "portas": safe_get(v, ["portas", "doors", "num_doors", "DOORS"]),
                 "categoria": categoria_final or safe_get(v, ["categoria", "category", "class", "BODY"]),
-                "cilindrada": safe_get(v, ["cilindrada", "displacement", "engine_size"]) or inferir_cilindrada(modelo_veiculo),
+                "cilindrada": cilindrada_final,
                 "preco": converter_preco(safe_get(v, ["valor", "valorVenda", "preco", "price", "value", "PRICE"])),
                 "opcionais": opcionais_veiculo, "fotos": self._parse_fotos(v)
             })
             parsed_vehicles.append(parsed)
         return parsed_vehicles
     
-    def _looks_like_vehicle(self, data: Dict) -> bool: return any(field in data for field in ['modelo', 'model', 'marca', 'brand', 'preco', 'price', 'ano', 'year'])
+    def _looks_like_vehicle(self, data: Dict) -> bool: 
+        return any(field in data for field in ['modelo', 'model', 'marca', 'brand', 'preco', 'price', 'ano', 'year'])
     
     def _parse_opcionais(self, opcionais: Any) -> str:
         if not opcionais: return ""
@@ -371,7 +652,7 @@ class BoomParser(BaseParser):
 class UnifiedVehicleFetcher:
     def __init__(self):
         self.parsers = [AltimusParser(), AutocertoParser(), RevendamaisParser(), AutoconfParser(), BoomParser()]
-        print("[INFO] Sistema unificado iniciado - detecção automática ativada")
+        print("[INFO] Sistema unificado iniciado - detecção automática ativada com suporte a motos")
     
     def get_urls(self) -> List[str]: return list({val for var, val in os.environ.items() if var.startswith("XML_URL") and val})
     
@@ -407,7 +688,16 @@ class UnifiedVehicleFetcher:
         print(f"[INFO] {len(urls)} URL(s) encontrada(s) para processar")
         all_vehicles = [vehicle for url in urls for vehicle in self.process_url(url)]
         
-        result = {"veiculos": all_vehicles, "_updated_at": datetime.now().isoformat(), "_total_count": len(all_vehicles), "_sources_processed": len(urls)}
+        # Estatísticas por tipo e categoria
+        stats = self._generate_stats(all_vehicles)
+        
+        result = {
+            "veiculos": all_vehicles, 
+            "_updated_at": datetime.now().isoformat(), 
+            "_total_count": len(all_vehicles), 
+            "_sources_processed": len(urls),
+            "_statistics": stats
+        }
         
         try:
             with open(JSON_FILE, "w", encoding="utf-8") as f: json.dump(result, f, ensure_ascii=False, indent=2)
@@ -415,7 +705,82 @@ class UnifiedVehicleFetcher:
         except Exception as e: print(f"[ERRO] Erro ao salvar arquivo JSON: {e}")
         
         print(f"[OK] Total de veículos processados: {len(all_vehicles)}")
+        self._print_stats(stats)
         return result
+    
+    def _generate_stats(self, vehicles: List[Dict]) -> Dict:
+        """Gera estatísticas dos veículos processados"""
+        stats = {
+            "por_tipo": {},
+            "motos_por_categoria": {},
+            "carros_por_categoria": {},
+            "top_marcas": {},
+            "cilindradas_motos": {}
+        }
+        
+        for vehicle in vehicles:
+            # Estatísticas por tipo
+            tipo = vehicle.get("tipo", "indefinido")
+            stats["por_tipo"][tipo] = stats["por_tipo"].get(tipo, 0) + 1
+            
+            # Estatísticas por categoria
+            categoria = vehicle.get("categoria", "indefinido")
+            if tipo and "moto" in str(tipo).lower():
+                stats["motos_por_categoria"][categoria] = stats["motos_por_categoria"].get(categoria, 0) + 1
+                
+                # Cilindradas das motos
+                cilindrada = vehicle.get("cilindrada")
+                if cilindrada:
+                    range_key = self._get_cilindrada_range(cilindrada)
+                    stats["cilindradas_motos"][range_key] = stats["cilindradas_motos"].get(range_key, 0) + 1
+            else:
+                stats["carros_por_categoria"][categoria] = stats["carros_por_categoria"].get(categoria, 0) + 1
+            
+            # Top marcas
+            marca = vehicle.get("marca", "indefinido")
+            stats["top_marcas"][marca] = stats["top_marcas"].get(marca, 0) + 1
+        
+        return stats
+    
+    def _get_cilindrada_range(self, cilindrada: int) -> str:
+        """Categoriza cilindradas em faixas"""
+        if cilindrada <= 125:
+            return "até 125cc"
+        elif cilindrada <= 250:
+            return "126cc - 250cc"
+        elif cilindrada <= 500:
+            return "251cc - 500cc"
+        elif cilindrada <= 1000:
+            return "501cc - 1000cc"
+        else:
+            return "acima de 1000cc"
+    
+    def _print_stats(self, stats: Dict):
+        """Imprime estatísticas formatadas"""
+        print(f"\n{'='*60}\nESTATÍSTICAS DO PROCESSAMENTO\n{'='*60}")
+        
+        print(f"\n📊 Distribuição por Tipo:")
+        for tipo, count in sorted(stats["por_tipo"].items(), key=lambda x: x[1], reverse=True):
+            print(f"  • {tipo}: {count}")
+        
+        if stats["motos_por_categoria"]:
+            print(f"\n🏍️  Motos por Categoria:")
+            for categoria, count in sorted(stats["motos_por_categoria"].items(), key=lambda x: x[1], reverse=True):
+                print(f"  • {categoria}: {count}")
+        
+        if stats["carros_por_categoria"]:
+            print(f"\n🚗 Carros por Categoria:")
+            for categoria, count in sorted(stats["carros_por_categoria"].items(), key=lambda x: x[1], reverse=True)[:5]:
+                print(f"  • {categoria}: {count}")
+        
+        if stats["cilindradas_motos"]:
+            print(f"\n🔧 Cilindradas das Motos:")
+            for faixa, count in sorted(stats["cilindradas_motos"].items(), key=lambda x: x[1], reverse=True):
+                print(f"  • {faixa}: {count}")
+        
+        print(f"\n🏭 Top 5 Marcas:")
+        for marca, count in sorted(stats["top_marcas"].items(), key=lambda x: x[1], reverse=True)[:5]:
+            print(f"  • {marca}: {count}")
 
 # =================== FUNÇÃO PARA IMPORTAÇÃO =======================
 
@@ -430,13 +795,24 @@ if __name__ == "__main__":
     result = fetch_and_convert_xml()
     
     if result and 'veiculos' in result:
-      total = result.get('_total_count', 0)
-      print(f"\n{'='*50}\nRESUMO DO PROCESSAMENTO\n{'='*50}")
-      print(f"Total de veículos: {total}")
-      print(f"Atualizado em: {result.get('_updated_at', 'N/A')}")
-      print(f"Fontes processadas: {result.get('_sources_processed', 0)}")
-      
-      if total > 0:
-          print(f"\nExemplo dos primeiros 5 veículos:")
-          for i, v in enumerate(result['veiculos'][:5], 1):
-              print(f"{i}. {v.get('marca', 'N/A')} {v.get('modelo', 'N/A')} ({v.get('categoria', 'N/A')}) {v.get('ano', 'N/A')} - R$ {v.get('preco', 0.0):,.2f}")
+        total = result.get('_total_count', 0)
+        print(f"\n{'='*50}\nRESUMO DO PROCESSAMENTO\n{'='*50}")
+        print(f"Total de veículos: {total}")
+        print(f"Atualizado em: {result.get('_updated_at', 'N/A')}")
+        print(f"Fontes processadas: {result.get('_sources_processed', 0)}")
+        
+        if total > 0:
+            print(f"\nExemplo dos primeiros 5 veículos:")
+            for i, v in enumerate(result['veiculos'][:5], 1):
+                tipo = v.get('tipo', 'N/A')
+                categoria = v.get('categoria', 'N/A')
+                cilindrada = v.get('cilindrada', '')
+                cilindrada_str = f" - {cilindrada}cc" if cilindrada else ""
+                print(f"{i}. {v.get('marca', 'N/A')} {v.get('modelo', 'N/A')} ({tipo}/{categoria}{cilindrada_str}) {v.get('ano', 'N/A')} - R$ {v.get('preco', 0.0):,.2f}")
+            
+            # Exemplos específicos de motos categorizadas
+            motos = [v for v in result['veiculos'] if v.get('tipo') and 'moto' in str(v.get('tipo')).lower()]
+            if motos:
+                print(f"\nExemplos de motos categorizadas:")
+                for i, moto in enumerate(motos[:3], 1):
+                    print(f"{i}. {moto.get('marca', 'N/A')} {moto.get('modelo', 'N/A')} - {moto.get('categoria', 'N/A')} - {moto.get('cilindrada', 'N/A')}cc")
