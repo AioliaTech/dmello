@@ -61,6 +61,7 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     "cg 150 titan": (150, "street"),
+    "cg 150 fan": (150, "street"),
     "cg 160 titan": (160, "street"),
     "cg 125": (125, "street"),
     "cg 160": (160, "street"),
@@ -100,6 +101,7 @@ MAPEAMENTO_MOTOS = {
     "burgman 125": (125, "scooter"),
     "dafra citycom 300": (300, "scooter"),
     "citycom": (300, "scooter"),
+    "adv 150": (150, "scooter"),
     
     # Trail/Offroad (dual-sport, suspensão robusta)
     "nxr 150 bros": (150, "trail"),
