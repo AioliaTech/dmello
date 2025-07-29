@@ -93,7 +93,7 @@ class VehicleSearchEngine:
     """Engine de busca de veículos com sistema de fallback inteligente"""
     
     def __init__(self):
-        self.exact_fields = ["tipo", "marca", "categoria", "cambio", "combustivel"]
+        self.exact_fields = ["tipo", "marca", "cambio", "combustivel"]
         
     def normalize_text(self, text: str) -> str:
         """Normaliza texto para comparação"""
@@ -278,6 +278,18 @@ class VehicleSearchEngine:
                 filtered_vehicles = [
                     v for v in filtered_vehicles
                     if self.fuzzy_match(all_words, str(v.get("cor", "")))[0]
+                ]
+                
+            elif filter_key == "categoria":
+                # Filtro de categoria: busca apenas no campo 'categoria' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("categoria", "")))[0]
                 ]
                 
             elif filter_key == "opcionais":
