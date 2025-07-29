@@ -61,7 +61,6 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     "cg 150 titan": (150, "street"),
-    "cg 150 fan": (150, "street"),
     "cg 160 titan": (160, "street"),
     "cg 125": (125, "street"),
     "cg 160": (160, "street"),
@@ -101,7 +100,6 @@ MAPEAMENTO_MOTOS = {
     "burgman 125": (125, "scooter"),
     "dafra citycom 300": (300, "scooter"),
     "citycom": (300, "scooter"),
-    "adv 150": (150, "scooter"),
     
     # Trail/Offroad (dual-sport, suspensão robusta)
     "nxr 150 bros": (150, "trail"),
@@ -398,7 +396,7 @@ class AltimusParser(BaseParser):
                 "cor": v.get("cor"), "combustivel": v.get("combustivel"), 
                 "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
                 "motor": re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))).group(1) if re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))) else None, 
-                "portas": v.get("portas"), "categoria": v.get("categoria"),
+                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
                 "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": v.get("fotos") or []
@@ -462,6 +460,20 @@ class AutocertoParser(BaseParser):
         return [img["url"].split("?")[0] for img in fotos_foto if isinstance(img, dict) and "url" in img]
 
 class AutoconfParser(BaseParser):
+    # Mapeamento de categorias específico do Autoconf
+    CATEGORIA_MAPPING = {
+        "conversivel/cupe": "Conversível",
+        "conversível/cupê": "Conversível", 
+        "picapes": "Caminhonete",
+        "suv / utilitario esportivo": "SUV",
+        "suv / utilitário esportivo": "SUV",
+        "suv": "SUV",
+        "van/utilitario": "Utilitário",
+        "van/utilitário": "Utilitário",
+        "wagon/perua": "Minivan",
+        "perua": "Minivan"
+    }
+    
     def can_parse(self, data: Any, url: str) -> bool:
         base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
         if not base_check: return False
@@ -484,7 +496,14 @@ class AutoconfParser(BaseParser):
                 cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
                 tipo_final = "moto"
             else:
+                # Para carros, primeiro tenta usar o mapeamento do definir_categoria_veiculo
                 categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                
+                # Se não encontrou, usa o campo BODY do XML e aplica o mapeamento específico
+                if not categoria_final:
+                    body_category = v.get("BODY", "").lower().strip()
+                    categoria_final = self.CATEGORIA_MAPPING.get(body_category, v.get("BODY"))
+                
                 cilindrada_final = inferir_cilindrada(modelo_veiculo)
                 tipo_final = "carro" if categoria_veiculo == "carros" else categoria_veiculo
 
@@ -496,7 +515,7 @@ class AutoconfParser(BaseParser):
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
                 "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
-                "categoria": v.get("BODY"), 
+                "categoria": categoria_final, 
                 "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("PRICE")), "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
@@ -555,7 +574,7 @@ class RevendamaisParser(BaseParser):
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"),
                 "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
                 "combustivel": v.get("FUEL"), "cambio": v.get("GEAR"), "motor": v.get("MOTOR"),
-                "portas": v.get("DOORS"), "categoria": v.get("BODY_TYPE"),
+                "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
                 "cilindrada": cilindrada_final, "preco": converter_preco(v.get("PRICE")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
