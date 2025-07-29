@@ -35,16 +35,16 @@ caminhonete_models = ["duster oroch", "hilux", "ranger", "s10", "l200", "triton"
 for model in caminhonete_models: MAPEAMENTO_CATEGORIAS[model] = "Caminhonete"
 
 utilitario_models = ["saveiro", "strada", "oroch", "kangoo", "partner", "doblo", "fiorino", "kombi", "doblo cargo", "berlingo", "combo", "express", "hr"]
-for model in utilitario_models: MAPEAMENTO_CATEGORIAS[model] = "Utilitario"
+for model in utilitario_models: MAPEAMENTO_CATEGORIAS[model] = "Utilitário"
 
 furgao_models = ["boxer", "daily", "ducato", "expert", "jumper", "jumpy", "master", "scudo", "sprinter", "trafic", "transit", "vito"]
-for model in furgao_models: MAPEAMENTO_CATEGORIAS[model] = "Furgao"
+for model in furgao_models: MAPEAMENTO_CATEGORIAS[model] = "Furgão"
 
 coupe_models = ["370z", "brz", "camaro", "challenger", "corvette", "gt86", "mustang", "r8", "rcz", "rx8", "supra", "tt", "tts", "veloster", "m2", "m4", "m8", "s5", "amg gt"]
 for model in coupe_models: MAPEAMENTO_CATEGORIAS[model] = "Coupe"
 
 conversivel_models = ["911 cabrio", "beetle cabriolet", "boxster", "eos", "miata", "mini cabrio", "slk", "z4", "série 8", "slc", "sl"]
-for model in conversivel_models: MAPEAMENTO_CATEGORIAS[model] = "Conversivel"
+for model in conversivel_models: MAPEAMENTO_CATEGORIAS[model] = "Conversível"
 
 station_wagon_models = ["a4 avant", "fielder", "golf variant", "palio weekend", "parati", "quantum", "spacefox", "rs2", "rs4", "rs6"]
 for model in station_wagon_models: MAPEAMENTO_CATEGORIAS[model] = "Station Wagon"
@@ -496,13 +496,9 @@ class AutoconfParser(BaseParser):
                 cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
                 tipo_final = "moto"
             else:
-                # Para carros, primeiro tenta usar o mapeamento do definir_categoria_veiculo
-                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-                
-                # Se não encontrou, usa o campo BODY do XML e aplica o mapeamento específico
-                if not categoria_final:
-                    body_category = v.get("BODY", "").lower().strip()
-                    categoria_final = self.CATEGORIA_MAPPING.get(body_category, v.get("BODY"))
+                # Para carros, usa SEMPRE o campo BODY e aplica o mapeamento específico
+                body_category = v.get("BODY", "").lower().strip()
+                categoria_final = self.CATEGORIA_MAPPING.get(body_category, v.get("BODY"))
                 
                 cilindrada_final = inferir_cilindrada(modelo_veiculo)
                 tipo_final = "carro" if categoria_veiculo == "carros" else categoria_veiculo
