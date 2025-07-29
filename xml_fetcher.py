@@ -398,7 +398,7 @@ class AltimusParser(BaseParser):
                 "cor": v.get("cor"), "combustivel": v.get("combustivel"), 
                 "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
                 "motor": re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))).group(1) if re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))) else None, 
-                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
+                "portas": v.get("portas"), "categoria": v.get("categoria"),
                 "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
                 "opcionais": opcionais_veiculo, "fotos": v.get("fotos") or []
@@ -496,7 +496,7 @@ class AutoconfParser(BaseParser):
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
                 "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
                 "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
-                "categoria": categoria_final or v.get("BODY"), 
+                "categoria": v.get("BODY"), 
                 "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("PRICE")), "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
@@ -555,7 +555,7 @@ class RevendamaisParser(BaseParser):
                 "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"),
                 "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
                 "combustivel": v.get("FUEL"), "cambio": v.get("GEAR"), "motor": v.get("MOTOR"),
-                "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
+                "portas": v.get("DOORS"), "categoria": v.get("BODY_TYPE"),
                 "cilindrada": cilindrada_final, "preco": converter_preco(v.get("PRICE")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
