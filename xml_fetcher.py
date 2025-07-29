@@ -35,16 +35,16 @@ caminhonete_models = ["duster oroch", "hilux", "ranger", "s10", "l200", "triton"
 for model in caminhonete_models: MAPEAMENTO_CATEGORIAS[model] = "Caminhonete"
 
 utilitario_models = ["saveiro", "strada", "oroch", "kangoo", "partner", "doblo", "fiorino", "kombi", "doblo cargo", "berlingo", "combo", "express", "hr"]
-for model in utilitario_models: MAPEAMENTO_CATEGORIAS[model] = "Utilitário"
+for model in utilitario_models: MAPEAMENTO_CATEGORIAS[model] = "Utilitario"
 
 furgao_models = ["boxer", "daily", "ducato", "expert", "jumper", "jumpy", "master", "scudo", "sprinter", "trafic", "transit", "vito"]
-for model in furgao_models: MAPEAMENTO_CATEGORIAS[model] = "Furgão"
+for model in furgao_models: MAPEAMENTO_CATEGORIAS[model] = "Furgao"
 
 coupe_models = ["370z", "brz", "camaro", "challenger", "corvette", "gt86", "mustang", "r8", "rcz", "rx8", "supra", "tt", "tts", "veloster", "m2", "m4", "m8", "s5", "amg gt"]
 for model in coupe_models: MAPEAMENTO_CATEGORIAS[model] = "Coupe"
 
 conversivel_models = ["911 cabrio", "beetle cabriolet", "boxster", "eos", "miata", "mini cabrio", "slk", "z4", "série 8", "slc", "sl"]
-for model in conversivel_models: MAPEAMENTO_CATEGORIAS[model] = "Conversível"
+for model in conversivel_models: MAPEAMENTO_CATEGORIAS[model] = "Conversivel"
 
 station_wagon_models = ["a4 avant", "fielder", "golf variant", "palio weekend", "parati", "quantum", "spacefox", "rs2", "rs4", "rs6"]
 for model in station_wagon_models: MAPEAMENTO_CATEGORIAS[model] = "Station Wagon"
