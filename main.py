@@ -17,12 +17,14 @@ STATUS_FILE = "last_update_status.json"
 
 # Configuração de prioridades para fallback (do menos importante para o mais importante)
 FALLBACK_PRIORITY = [
-    "KmMax",
-    "AnoMax",
+    "motor",         # Primeiro a ser removido
+    "portas",
     "cor",           
     "combustivel",
     "opcionais",
     "cambio",
+    "KmMax",
+    "AnoMax",
     "modelo",
     "marca",
     "categoria"         # Mais importante (nunca remove sozinho)
@@ -271,7 +273,7 @@ class VehicleSearchEngine:
     """Engine de busca de veículos com sistema de fallback inteligente"""
     
     def __init__(self):
-        self.exact_fields = ["tipo", "marca", "cambio", "combustivel"]
+        self.exact_fields = ["tipo", "marca", "cambio", "motor", "portas"]
         
     def normalize_text(self, text: str) -> str:
         """Normaliza texto para comparação"""
@@ -342,12 +344,29 @@ class VehicleSearchEngine:
         # Normaliza o modelo para busca
         normalized_model = self.normalize_text(model)
         
+        # Busca em motos primeiro (mapeamento mais específico)
+        if normalized_model in MAPEAMENTO_MOTOS:
+            _, category = MAPEAMENTO_MOTOS[normalized_model]
+            return category
+        
+        # Busca parcial em motos - verifica se alguma palavra do modelo está no mapeamento
+        model_words = normalized_model.split()
+        for word in model_words:
+            if len(word) >= 3 and word in MAPEAMENTO_MOTOS:
+                _, category = MAPEAMENTO_MOTOS[word]
+                return category
+        
+        # Busca por substring em motos - verifica se o modelo contém alguma chave do mapeamento
+        for key, (_, category) in MAPEAMENTO_MOTOS.items():
+            if key in normalized_model or normalized_model in key:
+                return category
+        
+        # Se não encontrou em motos, busca em carros
         # Busca exata primeiro
         if normalized_model in MAPEAMENTO_CATEGORIAS:
             return MAPEAMENTO_CATEGORIAS[normalized_model]
         
         # Busca parcial - verifica se alguma palavra do modelo está no mapeamento
-        model_words = normalized_model.split()
         for word in model_words:
             if len(word) >= 3 and word in MAPEAMENTO_CATEGORIAS:
                 return MAPEAMENTO_CATEGORIAS[word]
@@ -482,8 +501,20 @@ class VehicleSearchEngine:
                     if self.fuzzy_match(all_words, str(v.get("opcionais", "")))[0]
                 ]
                 
+            elif filter_key == "combustivel":
+                # Filtro de combustível: busca apenas no campo 'combustivel' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("combustivel", "")))[0]
+                ]
+                
             elif filter_key in self.exact_fields:
-                # Filtros exatos (tipo, marca, categoria, cambio, combustivel)
+                # Filtros exatos (tipo, marca, cambio, motor, portas)
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
@@ -869,7 +900,9 @@ def get_data(request: Request):
         "opcionais": query_params.get("opcionais"),
         "marca": query_params.get("marca"),
         "cor": query_params.get("cor"),
-        "combustivel": query_params.get("combustivel")
+        "combustivel": query_params.get("combustivel"),
+        "motor": query_params.get("motor"),
+        "portas": query_params.get("portas")
     }
     
     # Remove filtros vazios
