@@ -336,6 +336,22 @@ class VehicleSearchEngine:
         except (ValueError, TypeError):
             return None
     
+    def get_max_value_from_range_param(self, param_value: str) -> str:
+        """Extrai o maior valor de parâmetros de range que podem ter múltiplos valores"""
+        if not param_value:
+            return param_value
+        
+        # Se tem vírgula, pega o maior valor
+        if ',' in param_value:
+            try:
+                values = [float(v.strip()) for v in param_value.split(',') if v.strip()]
+                if values:
+                    return str(max(values))
+            except (ValueError, TypeError):
+                pass
+        
+        return param_value
+    
     def find_category_by_model(self, model: str) -> Optional[str]:
         """Encontra categoria baseada no modelo usando mapeamento"""
         if not model:
@@ -880,11 +896,11 @@ def get_data(request: Request):
     # Extrai parâmetros da query
     query_params = dict(request.query_params)
     
-    # Parâmetros especiais
-    valormax = query_params.pop("ValorMax", None)
-    anomax = query_params.pop("AnoMax", None)
-    kmmax = query_params.pop("KmMax", None)
-    ccmax = query_params.pop("CcMax", None)
+    # Parâmetros especiais - aplica "pegar maior valor" para campos de range
+    valormax = search_engine.get_max_value_from_range_param(query_params.pop("ValorMax", None))
+    anomax = search_engine.get_max_value_from_range_param(query_params.pop("AnoMax", None))
+    kmmax = search_engine.get_max_value_from_range_param(query_params.pop("KmMax", None))
+    ccmax = search_engine.get_max_value_from_range_param(query_params.pop("CcMax", None))
     simples = query_params.pop("simples", None)
     excluir = query_params.pop("excluir", None)
     
