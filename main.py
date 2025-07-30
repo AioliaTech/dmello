@@ -936,8 +936,10 @@ def get_data(request: Request):
             # Aplica modo simples se solicitado
             if simples == "1":
                 fotos = vehicle_found.get("fotos")
-                if isinstance(fotos, list):
-                    vehicle_found["fotos"] = fotos[:1] if fotos else []
+                if isinstance(fotos, list) and fotos:
+                    vehicle_found["fotos"] = [fotos[0]]  # Array com apenas a primeira foto
+                elif isinstance(fotos, list):
+                    vehicle_found["fotos"] = []  # Array vazio se não tem fotos
             
             # Remove opcionais se não foi pesquisado por opcionais OU por ID
             if "opcionais" not in filters and not id_param and "opcionais" in vehicle_found:
@@ -982,8 +984,10 @@ def get_data(request: Request):
             # Mantém apenas a primeira foto de cada veículo
             for vehicle in sorted_vehicles:
                 fotos = vehicle.get("fotos")
-                if isinstance(fotos, list):
-                    vehicle["fotos"] = fotos[:1] if fotos else []
+                if isinstance(fotos, list) and fotos:
+                    vehicle["fotos"] = [fotos[0]]  # Array com apenas a primeira foto
+                elif isinstance(fotos, list):
+                    vehicle["fotos"] = []  # Array vazio se não tem fotos
         
         # Remove opcionais se não foi pesquisado por opcionais OU por ID
         if "opcionais" not in filters and not id_param:
@@ -1007,8 +1011,10 @@ def get_data(request: Request):
         # Mantém apenas a primeira foto de cada veículo
         for vehicle in result.vehicles:
             fotos = vehicle.get("fotos")
-            if isinstance(fotos, list):
-                vehicle["fotos"] = fotos[:1] if fotos else []
+            if isinstance(fotos, list) and fotos:
+                vehicle["fotos"] = [fotos[0]]  # Array com apenas a primeira foto
+            elif isinstance(fotos, list):
+                vehicle["fotos"] = []  # Array vazio se não tem fotos
     
     # Remove opcionais se não foi pesquisado por opcionais OU por ID
     if "opcionais" not in filters and not id_param and result.vehicles:
