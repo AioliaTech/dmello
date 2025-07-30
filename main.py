@@ -979,8 +979,7 @@ def get_data(request: Request):
         
         # Aplica modo simples se solicitado
         if simples == "1":
-            # Limita a apenas 1 resultado e apenas 1 foto por veículo
-            sorted_vehicles = sorted_vehicles[:1]
+            # Mantém apenas a primeira foto de cada veículo
             for vehicle in sorted_vehicles:
                 fotos = vehicle.get("fotos")
                 if isinstance(fotos, list):
@@ -1005,8 +1004,7 @@ def get_data(request: Request):
     
     # Aplica modo simples se solicitado
     if simples == "1" and result.vehicles:
-        # Limita a apenas 1 resultado e apenas 1 foto por veículo
-        result.vehicles = result.vehicles[:1]
+        # Mantém apenas a primeira foto de cada veículo
         for vehicle in result.vehicles:
             fotos = vehicle.get("fotos")
             if isinstance(fotos, list):
