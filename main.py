@@ -936,13 +936,10 @@ def get_data(request: Request):
             # Aplica modo simples se solicitado
             if simples == "1":
                 fotos = vehicle_found.get("fotos")
-                if isinstance(fotos, list) and fotos:
-                    # Se é array aninhado, achata e pega a primeira foto
-                    if isinstance(fotos[0], list) and fotos[0]:
-                        vehicle_found["fotos"] = [fotos[0][0]]
-                    elif not isinstance(fotos[0], list):
-                        # Se é array simples, pega a primeira
-                        vehicle_found["fotos"] = [fotos[0]]
+                if isinstance(fotos, list) and len(fotos) > 0:
+                    # Estrutura: [["foto1", "foto2", ...]]
+                    if isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                        vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
                     else:
                         vehicle_found["fotos"] = []
                 else:
@@ -991,10 +988,14 @@ def get_data(request: Request):
             # Mantém apenas a primeira foto de cada veículo
             for vehicle in sorted_vehicles:
                 fotos = vehicle.get("fotos")
-                if isinstance(fotos, list) and fotos:
-                    vehicle["fotos"] = [fotos[0]]  # Array com apenas a primeira foto
-                elif isinstance(fotos, list):
-                    vehicle["fotos"] = []  # Array vazio se não tem fotos
+                if isinstance(fotos, list) and len(fotos) > 0:
+                    # Estrutura: [["foto1", "foto2", ...]]
+                    if isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                        vehicle["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
+                    else:
+                        vehicle["fotos"] = []
+                else:
+                    vehicle["fotos"] = []
         
         # Remove opcionais se não foi pesquisado por opcionais OU por ID
         if "opcionais" not in filters and not id_param:
@@ -1018,10 +1019,14 @@ def get_data(request: Request):
         # Mantém apenas a primeira foto de cada veículo
         for vehicle in result.vehicles:
             fotos = vehicle.get("fotos")
-            if isinstance(fotos, list) and fotos:
-                vehicle["fotos"] = [fotos[0]]  # Array com apenas a primeira foto
-            elif isinstance(fotos, list):
-                vehicle["fotos"] = []  # Array vazio se não tem fotos
+            if isinstance(fotos, list) and len(fotos) > 0:
+                # Estrutura: [["foto1", "foto2", ...]]
+                if isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                    vehicle["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
+                else:
+                    vehicle["fotos"] = []
+            else:
+                vehicle["fotos"] = []
     
     # Remove opcionais se não foi pesquisado por opcionais OU por ID
     if "opcionais" not in filters and not id_param and result.vehicles:
