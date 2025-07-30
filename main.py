@@ -937,9 +937,16 @@ def get_data(request: Request):
             if simples == "1":
                 fotos = vehicle_found.get("fotos")
                 if isinstance(fotos, list) and fotos:
-                    vehicle_found["fotos"] = [fotos[0]]  # Array com apenas a primeira foto
-                elif isinstance(fotos, list):
-                    vehicle_found["fotos"] = []  # Array vazio se não tem fotos
+                    # Se é array aninhado, achata e pega a primeira foto
+                    if isinstance(fotos[0], list) and fotos[0]:
+                        vehicle_found["fotos"] = [fotos[0][0]]
+                    elif not isinstance(fotos[0], list):
+                        # Se é array simples, pega a primeira
+                        vehicle_found["fotos"] = [fotos[0]]
+                    else:
+                        vehicle_found["fotos"] = []
+                else:
+                    vehicle_found["fotos"] = []
             
             # Remove opcionais se não foi pesquisado por opcionais OU por ID
             if "opcionais" not in filters and not id_param and "opcionais" in vehicle_found:
