@@ -943,8 +943,8 @@ def get_data(request: Request):
                     # Se é uma estrutura aninhada [["foto1", "foto2", ...]]
                     elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
                         vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
-                    else:
-                        vehicle_found["fotos"] = []
+            else:
+                vehicle_found["fotos"] = []
 else:
     vehicle_found["fotos"] = []
 else:
