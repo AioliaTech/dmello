@@ -59,31 +59,53 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 
 # Mapeamento combinado: cilindrada e categoria
 MAPEAMENTO_MOTOS = {
+# Mapeamento combinado: cilindrada e categoria
+MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     "cg 150 titan": (150, "street"),
+    "cg150 titan": (150, "street"),  # Variação sem espaço
     "cg 160 titan": (160, "street"),
+    "cg160 titan": (160, "street"),  # Variação sem espaço
     "cg 125": (125, "street"),
+    "cg125": (125, "street"),  # Variação sem espaço
     "cg 160": (160, "street"),
+    "cg160": (160, "street"),  # Variação sem espaço
     "cg 160 fan": (160, "street"),
+    "cg160 fan": (160, "street"),  # Variação sem espaço
     "cg 160 start": (160, "street"),
+    "cg160 start": (160, "street"),  # Variação sem espaço
     "cg 160 titan s": (160, "street"),
+    "cg160 titan s": (160, "street"),  # Variação sem espaço
     "cg 125 fan ks": (125, "street"),
+    "cg125 fan ks": (125, "street"),  # Variação sem espaço
     "cg150 fan": (150, "street"),
     "cg150 titan": (150, "street"),
     "ybr 150": (150, "street"),
+    "ybr150": (150, "street"),  # Variação sem espaço
     "ybr 125": (125, "street"),
+    "ybr125": (125, "street"),  # Variação sem espaço
     "factor 125": (125, "street"),
+    "factor125": (125, "street"),  # Variação sem espaço
     "factor 150": (150, "street"),
+    "factor150": (150, "street"),  # Variação sem espaço
     "fz25": (250, "street"),
+    "fz 25": (250, "street"),
     "fz25 fazer": (250, "street"),
+    "fz 25 fazer": (250, "street"),
     "fz15 fazer": (150, "street"),
+    "fz 15 fazer": (150, "street"),
     "fazer 150": (150, "street"),
+    "fazer150": (150, "street"),  # Variação sem espaço
     "fazer 250": (250, "street"),
+    "fazer250": (250, "street"),  # Variação sem espaço
     "ys 250": (250, "street"),
+    "ys250": (250, "street"),  # Variação sem espaço
     "cb 300": (300, "street"),
+    "cb300": (300, "street"),  # Variação sem espaço
     "cb twister": (300, "street"),
     "twister": (300, "street"),
     "next 300": (300, "street"),
+    "next300": (300, "street"),  # Variação sem espaço
     
     # Scooter (transmissão automática, design step-through)
     "biz 125": (125, "scooter"),
@@ -302,10 +324,26 @@ def inferir_cilindrada_e_categoria_moto(modelo: str) -> Tuple[Optional[int], Opt
         cilindrada, categoria = MAPEAMENTO_MOTOS[modelo_norm]
         return cilindrada, categoria
     
-    # Busca por correspondência parcial
+    # Busca por correspondência parcial - ordena por comprimento (mais específico primeiro)
+    matches = []
     for modelo_mapeado, (cilindrada, categoria) in MAPEAMENTO_MOTOS.items():
-        if normalizar_texto(modelo_mapeado) in modelo_norm:
-            return cilindrada, categoria
+        modelo_mapeado_norm = normalizar_texto(modelo_mapeado)
+        
+        # Verifica se o modelo mapeado está contido no modelo do feed
+        if modelo_mapeado_norm in modelo_norm:
+            matches.append((modelo_mapeado_norm, cilindrada, categoria, len(modelo_mapeado_norm)))
+        
+        # Verifica também variações sem espaço (ybr150 vs ybr 150)
+        modelo_sem_espaco = modelo_mapeado_norm.replace(' ', '')
+        if modelo_sem_espaco in modelo_norm:
+            matches.append((modelo_sem_espaco, cilindrada, categoria, len(modelo_sem_espaco)))
+    
+    # Se encontrou correspondências, retorna a mais específica (maior comprimento)
+    if matches:
+        # Ordena por comprimento decrescente para pegar a correspondência mais específica
+        matches.sort(key=lambda x: x[3], reverse=True)
+        _, cilindrada, categoria, _ = matches[0]
+        return cilindrada, categoria
     
     return None, None
 
@@ -343,6 +381,69 @@ def flatten_list(data: Any) -> List[Dict]:
     elif isinstance(data, dict): return [data]
     return []
 
+def normalize_fotos(fotos_data: Any) -> List[str]:
+    """
+    Normaliza diferentes estruturas de fotos para uma lista simples de URLs.
+    
+    Entrada aceitas:
+    - Lista simples de URLs: ["url1", "url2"]  
+    - Lista aninhada: [["url1", "url2"], ["url3"]]
+    - Lista de objetos: [{"url": "url1"}, {"IMAGE_URL": "url2"}]
+    - Objeto único: {"url": "url1"}
+    - String única: "url1"
+    
+    Retorna sempre: ["url1", "url2", "url3"]
+    """
+    if not fotos_data:
+        return []
+    
+    result = []
+    
+    def extract_url_from_item(item):
+        """Extrai URL de um item que pode ser string, dict ou outro tipo"""
+        if isinstance(item, str):
+            return item.strip()
+        elif isinstance(item, dict):
+            # Tenta várias chaves possíveis para URL
+            for key in ["url", "URL", "src", "IMAGE_URL", "path", "link", "href"]:
+                if key in item and item[key]:
+                    url = str(item[key]).strip()
+                    # Remove parâmetros de query se houver
+                    return url.split("?")[0] if "?" in url else url
+        return None
+    
+    def process_item(item):
+        """Processa um item que pode ser string, lista ou dict"""
+        if isinstance(item, str):
+            url = extract_url_from_item(item)
+            if url:
+                result.append(url)
+        elif isinstance(item, list):
+            # Lista aninhada - processa cada subitem
+            for subitem in item:
+                process_item(subitem)
+        elif isinstance(item, dict):
+            url = extract_url_from_item(item)
+            if url:
+                result.append(url)
+    
+    # Processa a estrutura principal
+    if isinstance(fotos_data, list):
+        for item in fotos_data:
+            process_item(item)
+    else:
+        process_item(fotos_data)
+    
+    # Remove duplicatas e URLs vazias, mantém a ordem
+    seen = set()
+    normalized = []
+    for url in result:
+        if url and url not in seen:
+            seen.add(url)
+            normalized.append(url)
+    
+    return normalized
+
 # =================== PARSERS =======================
 
 class BaseParser(ABC):
@@ -353,6 +454,10 @@ class BaseParser(ABC):
     def parse(self, data: Any, url: str) -> List[Dict]: pass
     
     def normalize_vehicle(self, vehicle: Dict) -> Dict:
+        # Aplica normalização nas fotos antes de retornar
+        fotos = vehicle.get("fotos", [])
+        vehicle["fotos"] = normalize_fotos(fotos)
+        
         return {
             "id": vehicle.get("id"), "tipo": vehicle.get("tipo"), "titulo": vehicle.get("titulo"),
             "versao": vehicle.get("versao"), "marca": vehicle.get("marca"), "modelo": vehicle.get("modelo"),
@@ -399,7 +504,7 @@ class AltimusParser(BaseParser):
                 "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
                 "cilindrada": cilindrada_final,
                 "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
-                "opcionais": opcionais_veiculo, "fotos": v.get("fotos") or []
+                "opcionais": opcionais_veiculo, "fotos": v.get("fotos", [])
             })
             parsed_vehicles.append(parsed)
         return parsed_vehicles
@@ -833,3 +938,14 @@ if __name__ == "__main__":
                 print(f"\nExemplos de motos categorizadas:")
                 for i, moto in enumerate(motos[:3], 1):
                     print(f"{i}. {moto.get('marca', 'N/A')} {moto.get('modelo', 'N/A')} - {moto.get('categoria', 'N/A')} - {moto.get('cilindrada', 'N/A')}cc")
+            
+            # Demonstração da normalização de fotos
+            print(f"\nExemplos de fotos normalizadas:")
+            vehicles_with_photos = [v for v in result['veiculos'] if v.get('fotos')][:3]
+            for i, vehicle in enumerate(vehicles_with_photos, 1):
+                fotos = vehicle.get('fotos', [])
+                print(f"{i}. {vehicle.get('marca', 'N/A')} {vehicle.get('modelo', 'N/A')} - {len(fotos)} foto(s)")
+                if fotos:
+                    print(f"   Primeira foto: {fotos[0]}")
+                    if len(fotos) > 1:
+                        print(f"   Tipo da estrutura: Lista simples com {len(fotos)} URLs")
