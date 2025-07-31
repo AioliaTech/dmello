@@ -945,10 +945,6 @@ def get_data(request: Request):
                         vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
             else:
                 vehicle_found["fotos"] = []
-else:
-    vehicle_found["fotos"] = []
-else:
-    vehicle_found["fotos"] = []
             
             # Remove opcionais se não foi pesquisado por opcionais OU por ID
             if "opcionais" not in filters and not id_param and "opcionais" in vehicle_found:
