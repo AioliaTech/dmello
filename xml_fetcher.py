@@ -1,4 +1,605 @@
-import requests
+def converter_preco(valor: Any) -> float:
+    if not valor: return 0.0
+    try:
+        if isinstance(valor, (int, float)): return float(valor)
+        valor_str = str(valor)
+        valor_str = re.sub(r'[^\d,.]', '', valor_str).replace(',', '.')
+        parts = valor_str.split('.')
+        if len(parts) > 2: valor_str = ''.join(parts[:-1]) + '.' + parts[-1]
+        return float(valor_str) if valor_str else 0.0
+    except (ValueError, TypeError): return 0.0
+
+def safe_get(data: Dict, keys: Union[str, List[str]], default: Any = None) -> Any:
+    if isinstance(keys, str): keys = [keys]
+    for key in keys:
+        if isinstance(data, dict) and key in data and data[key] is not None:
+            return data[key]
+    return default
+
+def flatten_list(data: Any) -> List[Dict]:
+    if not data: return []
+    if isinstance(data, list):
+        result = []
+        for item in data:
+            if isinstance(item, dict): result.append(item)
+            elif isinstance(item, list): result.extend(flatten_list(item))
+        return result
+    elif isinstance(data, dict): return [data]
+    return []
+
+def normalize_fotos(fotos_data: Any) -> List[str]:
+    """
+    Normaliza diferentes estruturas de fotos para uma lista simples de URLs.
+    
+    Entrada aceitas:
+    - Lista simples de URLs: ["url1", "url2"]  
+    - Lista aninhada: [["url1", "url2"], ["url3"]]
+    - Lista de objetos: [{"url": "url1"}, {"IMAGE_URL": "url2"}]
+    - Objeto único: {"url": "url1"}
+    - String única: "url1"
+    
+    Retorna sempre: ["url1", "url2", "url3"]
+    """
+    if not fotos_data:
+        return []
+    
+    result = []
+    
+    def extract_url_from_item(item):
+        """Extrai URL de um item que pode ser string, dict ou outro tipo"""
+        if isinstance(item, str):
+            return item.strip()
+        elif isinstance(item, dict):
+            # Tenta várias chaves possíveis para URL
+            for key in ["url", "URL", "src", "IMAGE_URL", "path", "link", "href"]:
+                if key in item and item[key]:
+                    url = str(item[key]).strip()
+                    # Remove parâmetros de query se houver
+                    return url.split("?")[0] if "?" in url else url
+        return None
+    
+    def process_item(item):
+        """Processa um item que pode ser string, lista ou dict"""
+        if isinstance(item, str):
+            url = extract_url_from_item(item)
+            if url:
+                result.append(url)
+        elif isinstance(item, list):
+            # Lista aninhada - processa cada subitem
+            for subitem in item:
+                process_item(subitem)
+        elif isinstance(item, dict):
+            url = extract_url_from_item(item)
+            if url:
+                result.append(url)
+    
+    # Processa a estrutura principal
+    if isinstance(fotos_data, list):
+        for item in fotos_data:
+            process_item(item)
+    else:
+        process_item(fotos_data)
+    
+    # Remove duplicatas e URLs vazias, mantém a ordem
+    seen = set()
+    normalized = []
+    for url in result:
+        if url and url not in seen:
+            seen.add(url)
+            normalized.append(url)
+    
+    return normalized
+
+# =================== PARSERS =======================
+
+class BaseParser(ABC):
+    @abstractmethod
+    def can_parse(self, data: Any, url: str) -> bool: pass
+    
+    @abstractmethod
+    def parse(self, data: Any, url: str) -> List[Dict]: pass
+    
+    def normalize_vehicle(self, vehicle: Dict) -> Dict:
+        # Aplica normalização nas fotos antes de retornar
+        fotos = vehicle.get("fotos", [])
+        vehicle["fotos"] = normalize_fotos(fotos)
+        
+        return {
+            "id": vehicle.get("id"), "tipo": vehicle.get("tipo"), "titulo": vehicle.get("titulo"),
+            "versao": vehicle.get("versao"), "marca": vehicle.get("marca"), "modelo": vehicle.get("modelo"),
+            "ano": vehicle.get("ano"), "ano_fabricacao": vehicle.get("ano_fabricacao"), "km": vehicle.get("km"),
+            "cor": vehicle.get("cor"), "combustivel": vehicle.get("combustivel"), "cambio": vehicle.get("cambio"),
+            "motor": vehicle.get("motor"), "portas": vehicle.get("portas"), "categoria": vehicle.get("categoria"),
+            "cilindrada": vehicle.get("cilindrada"), "preco": vehicle.get("preco", 0.0),
+            "opcionais": vehicle.get("opcionais", ""), "fotos": vehicle.get("fotos", [])
+        }
+
+class AltimusParser(BaseParser):
+    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, dict) and "veiculos" in data
+    
+    def parse(self, data: Any, url: str) -> List[Dict]:
+        veiculos = data.get("veiculos", [])
+        if isinstance(veiculos, dict): veiculos = [veiculos]
+        
+        parsed_vehicles = []
+        for v in veiculos:
+            modelo_veiculo = v.get("modelo")
+            versao_veiculo = v.get("versao")
+            opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
+            
+            # Determina se é moto ou carro
+            tipo_veiculo = v.get("tipo", "").lower()
+            is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
+            
+            if is_moto:
+                # Para motos: usa o novo sistema com modelo E versão
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
+            else:
+                # Para carros: usa o sistema existente
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = v.get("cilindrada") or inferir_cilindrada(modelo_veiculo, versao_veiculo)
+            
+            parsed = self.normalize_vehicle({
+                "id": v.get("id"), 
+                "tipo": "moto" if is_moto else ("carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo")), 
+                "titulo": None, "versao": versao_veiculo,
+                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
+                "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
+                "cor": v.get("cor"), "combustivel": v.get("combustivel"), 
+                "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
+                "motor": re.search(r'\b(\d+\.\d+)\b', str(versao_veiculo or "")).group(1) if re.search(r'\b(\d+\.\d+)\b', str(versao_veiculo or "")) else None, 
+                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
+                "cilindrada": cilindrada_final,
+                "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
+                "opcionais": opcionais_veiculo, "fotos": v.get("fotos", [])
+            })
+            parsed_vehicles.append(parsed)
+        return parsed_vehicles
+    
+    def _parse_opcionais(self, opcionais: Any) -> str:
+        if isinstance(opcionais, list): return ", ".join(str(item) for item in opcionais if item)
+        return str(opcionais) if opcionais else ""
+
+class AutocertoParser(BaseParser):
+    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, dict) and "estoque" in data and "veiculo" in data.get("estoque", {})
+    
+    def parse(self, data: Any, url: str) -> List[Dict]:
+        veiculos = data["estoque"]["veiculo"]
+        if isinstance(veiculos, dict): veiculos = [veiculos]
+        
+        parsed_vehicles = []
+        for v in veiculos:
+            modelo_veiculo = v.get("modelo")
+            versao_veiculo = v.get("versao")
+            opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
+            
+            # Determina se é moto ou carro
+            tipo_veiculo = v.get("tipoveiculo", "").lower()
+            is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_veiculo)
+
+            parsed = self.normalize_vehicle({
+                "id": v.get("idveiculo"), 
+                "tipo": "moto" if is_moto else v.get("tipoveiculo"), 
+                "titulo": None, 
+                "versao": ((v.get('modelo', '').strip() + ' ' + ' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|gasolina|manual|automático|4p)\b', '', v.get('versao', ''), flags=re.IGNORECASE).split())).strip()) if v.get("versao") else (v.get("modelo", "").strip() or None),
+                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anomodelo"), "ano_fabricacao": None,
+                "km": v.get("quilometragem"), "cor": v.get("cor"), "combustivel": v.get("combustivel"),
+                "cambio": v.get("cambio"), 
+                "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, 
+                "portas": v.get("numeroportas"), "categoria": categoria_final,
+                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("preco")),
+                "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
+            })
+            parsed_vehicles.append(parsed)
+        return parsed_vehicles
+
+    def _parse_opcionais(self, opcionais: Any) -> str:
+        if isinstance(opcionais, dict) and "opcional" in opcionais:
+            opcional = opcionais["opcional"]
+            if isinstance(opcional, list): return ", ".join(str(item) for item in opcional if item)
+            return str(opcional) if opcional else ""
+        return ""
+    
+    def extract_photos(self, v: Dict) -> List[str]:
+        fotos = v.get("fotos")
+        if not fotos or not (fotos_foto := fotos.get("foto")): return []
+        if isinstance(fotos_foto, dict): fotos_foto = [fotos_foto]
+        return [img["url"].split("?")[0] for img in fotos_foto if isinstance(img, dict) and "url" in img]
+
+class AutoconfParser(BaseParser):
+    # Mapeamento de categorias específico do Autoconf
+    CATEGORIA_MAPPING = {
+        "conversivel/cupe": "Conversível",
+        "conversível/cupê": "Conversível", 
+        "picapes": "Caminhonete",
+        "suv / utilitario esportivo": "SUV",
+        "suv / utilitário esportivo": "SUV",
+        "suv": "SUV",
+        "van/utilitario": "Utilitário",
+        "van/utilitário": "Utilitário",
+        "wagon/perua": "Minivan",
+        "perua": "Minivan"
+    }
+    
+    def can_parse(self, data: Any, url: str) -> bool:
+        base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
+        if not base_check: return False
+        return "autoconf" in url
+    
+    def parse(self, data: Any, url: str) -> List[Dict]:
+        ads = data["ADS"]["AD"]
+        if isinstance(ads, dict): ads = [ads]
+        
+        parsed_vehicles = []
+        for v in ads:
+            modelo_veiculo = v.get("MODEL")
+            versao_veiculo = v.get("VERSION")
+            opcionais_veiculo = self._parse_features(v.get("FEATURES"))
+            
+            # Determina se é moto ou carro
+            categoria_veiculo = v.get("CATEGORY", "").lower()
+            is_moto = categoria_veiculo == "motos" or "moto" in categoria_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
+                tipo_final = "moto"
+            else:
+                # Para carros, usa SEMPRE o campo BODY e aplica o mapeamento específico
+                body_category = v.get("BODY", "").lower().strip()
+                categoria_final = self.CATEGORIA_MAPPING.get(body_category, v.get("BODY"))
+                
+                cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_veiculo)
+                tipo_final = "carro" if categoria_veiculo == "carros" else categoria_veiculo
+
+            parsed = self.normalize_vehicle({
+                "id": v.get("ID"), 
+                "tipo": tipo_final,
+                "titulo": None, 
+                "versao": (' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|aut|aut.|dies|dies.|mec.|mec|gasolina|manual|automático|4p)\b', '', versao_veiculo or '', flags=re.IGNORECASE).split()).strip()) if versao_veiculo else None,
+                "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
+                "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
+                "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
+                "categoria": categoria_final, 
+                "cilindrada": cilindrada_final,
+                "preco": converter_preco(v.get("PRICE")), "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
+            })
+            parsed_vehicles.append(parsed)
+        return parsed_vehicles
+    
+    def _parse_features(self, features: Any) -> str:
+        if not features: return ""
+        if isinstance(features, list):
+            return ", ".join(feat.get("FEATURE", "") if isinstance(feat, dict) else str(feat) for feat in features)
+        return str(features)
+    
+    def extract_photos(self, v: Dict) -> List[str]:
+        images = v.get("IMAGES", [])
+        if not images: return []
+    
+        # Se é uma lista (múltiplos IMAGES)
+        if isinstance(images, list):
+            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
+    
+        # Se é um dict único
+        elif isinstance(images, dict) and images.get("IMAGE_URL"):
+            return [images["IMAGE_URL"]]
+        
+        return []
+
+class RevendamaisParser(BaseParser):
+    def can_parse(self, data: Any, url: str) -> bool:
+       base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
+       if not base_check: return False
+       return "revendamais" in url
+
+    def parse(self, data: Any, url: str) -> List[Dict]:
+        ads = data["ADS"]["AD"]
+        if isinstance(ads, dict): ads = [ads]
+        
+        parsed_vehicles = []
+        for v in ads:
+            modelo_veiculo = v.get("MODEL")
+            versao_veiculo = v.get("VERSION")
+            opcionais_veiculo = v.get("ACCESSORIES") or ""
+            
+            # Determina se é moto ou carro
+            categoria_veiculo = v.get("CATEGORY", "").lower()
+            is_moto = categoria_veiculo == "motocicleta" or "moto" in categoria_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
+                tipo_final = "moto"
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_veiculo)
+                tipo_final = v.get("CATEGORY")
+
+            parsed = self.normalize_vehicle({
+                "id": v.get("ID"), "tipo": tipo_final, "titulo": v.get("TITLE"), "versao": versao_veiculo,
+                "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"),
+                "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
+                "combustivel": v.get("FUEL"), "cambio": v.get("GEAR"), "motor": v.get("MOTOR"),
+                "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
+                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("PRICE")),
+                "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
+            })
+            parsed_vehicles.append(parsed)
+        return parsed_vehicles
+    
+    def extract_photos(self, v: Dict) -> List[str]:
+        images = v.get("IMAGES", [])
+        if not images: return []
+        
+        if isinstance(images, list):
+            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
+        elif isinstance(images, dict) and images.get("IMAGE_URL"):
+            return [images["IMAGE_URL"]]
+        
+        return []
+
+class BoomParser(BaseParser):
+    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, (dict, list))
+    
+    def parse(self, data: Any, url: str) -> List[Dict]:
+        veiculos = []
+        if isinstance(data, list): veiculos = flatten_list(data)
+        elif isinstance(data, dict):
+            for key in ['veiculos', 'vehicles', 'data', 'items', 'results', 'content']:
+                if key in data: veiculos = flatten_list(data[key]); break
+            if not veiculos and self._looks_like_vehicle(data): veiculos = [data]
+        
+        parsed_vehicles = []
+        for v in veiculos:
+            if not isinstance(v, dict): continue
+            
+            modelo_veiculo = safe_get(v, ["modelo", "model", "nome", "MODEL"])
+            versao_veiculo = safe_get(v, ["versao", "version", "variant", "VERSION"])
+            opcionais_veiculo = self._parse_opcionais(safe_get(v, ["opcionais", "options", "extras", "features", "FEATURES"]))
+            
+            # Determina se é moto ou carro baseado em campos disponíveis
+            tipo_veiculo = safe_get(v, ["tipo", "type", "categoria_veiculo", "CATEGORY", "vehicle_type"]) or ""
+            is_moto = any(termo in str(tipo_veiculo).lower() for termo in ["moto", "motocicleta", "motorcycle", "bike"])
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
+                tipo_final = "moto"
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = safe_get(v, ["cilindrada", "displacement", "engine_size"]) or inferir_cilindrada(modelo_veiculo, versao_veiculo)
+                tipo_final = tipo_veiculo or "carro"
+
+            parsed = self.normalize_vehicle({
+                "id": safe_get(v, ["id", "ID", "codigo", "cod"]), 
+                "tipo": tipo_final,
+                "titulo": safe_get(v, ["titulo", "title", "TITLE"]), 
+                "versao": versao_veiculo,
+                "marca": safe_get(v, ["marca", "brand", "fabricante", "MAKE"]), 
+                "modelo": modelo_veiculo,
+                "ano": safe_get(v, ["ano_mod", "anoModelo", "ano", "year_model", "ano_modelo", "YEAR"]),
+                "ano_fabricacao": safe_get(v, ["ano_fab", "anoFabricacao", "ano_fabricacao", "year_manufacture", "FABRIC_YEAR"]),
+                "km": safe_get(v, ["km", "quilometragem", "mileage", "kilometers", "MILEAGE"]), 
+                "cor": safe_get(v, ["cor", "color", "colour", "COLOR"]),
+                "combustivel": safe_get(v, ["combustivel", "fuel", "fuel_type", "FUEL"]), 
+                "cambio": safe_get(v, ["cambio", "transmission", "gear", "GEAR"]),
+                "motor": safe_get(v, ["motor", "engine", "motorization", "MOTOR"]), 
+                "portas": safe_get(v, ["portas", "doors", "num_doors", "DOORS"]),
+                "categoria": categoria_final or safe_get(v, ["categoria", "category", "class", "BODY"]),
+                "cilindrada": cilindrada_final,
+                "preco": converter_preco(safe_get(v, ["valor", "valorVenda", "preco", "price", "value", "PRICE"])),
+                "opcionais": opcionais_veiculo, "fotos": self._parse_fotos(v)
+            })
+            parsed_vehicles.append(parsed)
+        return parsed_vehicles
+    
+    def _looks_like_vehicle(self, data: Dict) -> bool: 
+        return any(field in data for field in ['modelo', 'model', 'marca', 'brand', 'preco', 'price', 'ano', 'year'])
+    
+    def _parse_opcionais(self, opcionais: Any) -> str:
+        if not opcionais: return ""
+        if isinstance(opcionais, list):
+            if all(isinstance(i, dict) for i in opcionais):
+                return ", ".join(name for item in opcionais if (name := safe_get(item, ["nome", "name", "descricao", "description", "FEATURE"])))
+            return ", ".join(str(item) for item in opcionais if item)
+        return str(opcionais)
+    
+    def _parse_fotos(self, v: Dict) -> List[str]:
+        fotos_data = safe_get(v, ["galeria", "fotos", "photos", "images", "gallery", "IMAGES"], [])
+        if not isinstance(fotos_data, list): fotos_data = [fotos_data] if fotos_data else []
+        
+        result = []
+        for foto in fotos_data:
+            if isinstance(foto, str): result.append(foto)
+            elif isinstance(foto, dict):
+                if url := safe_get(foto, ["url", "URL", "src", "IMAGE_URL", "path"]):
+                    result.append(url)
+        return result
+
+# =================== SISTEMA PRINCIPAL =======================
+
+class UnifiedVehicleFetcher:
+    def __init__(self):
+        self.parsers = [AltimusParser(), AutocertoParser(), RevendamaisParser(), AutoconfParser(), BoomParser()]
+        print("[INFO] Sistema unificado iniciado - detecção automática ativada com suporte a motos")
+    
+    def get_urls(self) -> List[str]: return list({val for var, val in os.environ.items() if var.startswith("XML_URL") and val})
+    
+    def detect_format(self, content: bytes, url: str) -> tuple[Any, str]:
+        content_str = content.decode('utf-8', errors='ignore')
+        try: return json.loads(content_str), "json"
+        except json.JSONDecodeError:
+            try: return xmltodict.parse(content_str), "xml"
+            except Exception: raise ValueError(f"Formato não reconhecido para URL: {url}")
+    
+    def process_url(self, url: str) -> List[Dict]:
+        print(f"[INFO] Processando URL: {url}")
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            data, format_type = self.detect_format(response.content, url)
+            print(f"[INFO] Formato detectado: {format_type}")
+            for parser in self.parsers:
+                if parser.can_parse(data, url):
+                    print(f"[INFO] Usando parser: {parser.__class__.__name__}")
+                    return parser.parse(data, url)
+            print(f"[AVISO] Nenhum parser adequado encontrado para URL: {url}")
+            return []
+        except requests.RequestException as e: print(f"[ERRO] Erro de requisição para URL {url}: {e}"); return []
+        except Exception as e: print(f"[ERRO] Erro crítico ao processar URL {url}: {e}"); return []
+    
+    def fetch_all(self) -> Dict:
+        urls = self.get_urls()
+        if not urls:
+            print("[AVISO] Nenhuma variável de ambiente 'XML_URL' foi encontrada.")
+            return {}
+        
+        print(f"[INFO] {len(urls)} URL(s) encontrada(s) para processar")
+        all_vehicles = [vehicle for url in urls for vehicle in self.process_url(url)]
+        
+        # Estatísticas por tipo e categoria
+        stats = self._generate_stats(all_vehicles)
+        
+        result = {
+            "veiculos": all_vehicles, 
+            "_updated_at": datetime.now().isoformat(), 
+            "_total_count": len(all_vehicles), 
+            "_sources_processed": len(urls),
+            "_statistics": stats
+        }
+        
+        try:
+            with open(JSON_FILE, "w", encoding="utf-8") as f: json.dump(result, f, ensure_ascii=False, indent=2)
+            print(f"\n[OK] Arquivo {JSON_FILE} salvo com sucesso!")
+        except Exception as e: print(f"[ERRO] Erro ao salvar arquivo JSON: {e}")
+        
+        print(f"[OK] Total de veículos processados: {len(all_vehicles)}")
+        self._print_stats(stats)
+        return result
+    
+    def _generate_stats(self, vehicles: List[Dict]) -> Dict:
+        """Gera estatísticas dos veículos processados"""
+        stats = {
+            "por_tipo": {},
+            "motos_por_categoria": {},
+            "carros_por_categoria": {},
+            "top_marcas": {},
+            "cilindradas_motos": {}
+        }
+        
+        for vehicle in vehicles:
+            # Estatísticas por tipo
+            tipo = vehicle.get("tipo", "indefinido")
+            stats["por_tipo"][tipo] = stats["por_tipo"].get(tipo, 0) + 1
+            
+            # Estatísticas por categoria
+            categoria = vehicle.get("categoria", "indefinido")
+            if tipo and "moto" in str(tipo).lower():
+                stats["motos_por_categoria"][categoria] = stats["motos_por_categoria"].get(categoria, 0) + 1
+                
+                # Cilindradas das motos
+                cilindrada = vehicle.get("cilindrada")
+                if cilindrada:
+                    range_key = self._get_cilindrada_range(cilindrada)
+                    stats["cilindradas_motos"][range_key] = stats["cilindradas_motos"].get(range_key, 0) + 1
+            else:
+                stats["carros_por_categoria"][categoria] = stats["carros_por_categoria"].get(categoria, 0) + 1
+            
+            # Top marcas
+            marca = vehicle.get("marca", "indefinido")
+            stats["top_marcas"][marca] = stats["top_marcas"].get(marca, 0) + 1
+        
+        return stats
+    
+    def _get_cilindrada_range(self, cilindrada: int) -> str:
+        """Categoriza cilindradas em faixas"""
+        if cilindrada <= 125:
+            return "até 125cc"
+        elif cilindrada <= 250:
+            return "126cc - 250cc"
+        elif cilindrada <= 500:
+            return "251cc - 500cc"
+        elif cilindrada <= 1000:
+            return "501cc - 1000cc"
+        else:
+            return "acima de 1000cc"
+    
+    def _print_stats(self, stats: Dict):
+        """Imprime estatísticas formatadas"""
+        print(f"\n{'='*60}\nESTATÍSTICAS DO PROCESSAMENTO\n{'='*60}")
+        
+        print(f"\n📊 Distribuição por Tipo:")
+        for tipo, count in sorted(stats["por_tipo"].items(), key=lambda x: x[1], reverse=True):
+            print(f"  • {tipo}: {count}")
+        
+        if stats["motos_por_categoria"]:
+            print(f"\n🏍️  Motos por Categoria:")
+            for categoria, count in sorted(stats["motos_por_categoria"].items(), key=lambda x: x[1], reverse=True):
+                print(f"  • {categoria}: {count}")
+        
+        if stats["carros_por_categoria"]:
+            print(f"\n🚗 Carros por Categoria:")
+            for categoria, count in sorted(stats["carros_por_categoria"].items(), key=lambda x: x[1], reverse=True)[:5]:
+                print(f"  • {categoria}: {count}")
+        
+        if stats["cilindradas_motos"]:
+            print(f"\n🔧 Cilindradas das Motos:")
+            for faixa, count in sorted(stats["cilindradas_motos"].items(), key=lambda x: x[1], reverse=True):
+                print(f"  • {faixa}: {count}")
+        
+        print(f"\n🏭 Top 5 Marcas:")
+        for marca, count in sorted(stats["top_marcas"].items(), key=lambda x: x[1], reverse=True)[:5]:
+            print(f"  • {marca}: {count}")
+
+# =================== FUNÇÃO PARA IMPORTAÇÃO =======================
+
+def fetch_and_convert_xml():
+    """Função de alto nível para ser importada por outros módulos."""
+    fetcher = UnifiedVehicleFetcher()
+    return fetcher.fetch_all()
+
+# =================== EXECUÇÃO PRINCIPAL (SE RODADO DIRETAMENTE) =======================
+
+if __name__ == "__main__":
+    result = fetch_and_convert_xml()
+    
+    if result and 'veiculos' in result:
+        total = result.get('_total_count', 0)
+        print(f"\n{'='*50}\nRESUMO DO PROCESSAMENTO\n{'='*50}")
+        print(f"Total de veículos: {total}")
+        print(f"Atualizado em: {result.get('_updated_at', 'N/A')}")
+        print(f"Fontes processadas: {result.get('_sources_processed', 0)}")
+        
+        if total > 0:
+            print(f"\nExemplo dos primeiros 5 veículos:")
+            for i, v in enumerate(result['veiculos'][:5], 1):
+                tipo = v.get('tipo', 'N/A')
+                categoria = v.get('categoria', 'N/A')
+                cilindrada = v.get('cilindrada', '')
+                cilindrada_str = f" - {cilindrada}cc" if cilindrada else ""
+                print(f"{i}. {v.get('marca', 'N/A')} {v.get('modelo', 'N/A')} ({tipo}/{categoria}{cilindrada_str}) {v.get('ano', 'N/A')} - R$ {v.get('preco', 0.0):,.2f}")
+            
+            # Exemplos específicos de motos categorizadas
+            motos = [v for v in result['veiculos'] if v.get('tipo') and 'moto' in str(v.get('tipo')).lower()]
+            if motos:
+                print(f"\nExemplos de motos categorizadas:")
+                for i, moto in enumerate(motos[:3], 1):
+                    print(f"{i}. {moto.get('marca', 'N/A')} {moto.get('modelo', 'N/A')} - {moto.get('categoria', 'N/A')} - {moto.get('cilindrada', 'N/A')}cc")
+            
+            # Demonstração da normalização de fotos
+            print(f"\nExemplos de fotos normalizadas:")
+            vehicles_with_photos = [v for v in result['veiculos'] if v.get('fotos')][:3]
+            for i, vehicle in enumerate(vehicles_with_photos, 1):
+                fotos = vehicle.get('fotos', [])
+                print(f"{i}. {vehicle.get('marca', 'N/A')} {vehicle.get('modelo', 'N/A')} - {len(fotos)} foto(s)")
+                if fotos:
+                    print(f"   Primeira foto: {fotos[0]}")
+                    if len(fotos) > 1:
+                        print(f"   Tipo da estrutura: Lista simples com {len(fotos)} URLs")import requests
 import xmltodict
 import json
 import os
@@ -405,643 +1006,56 @@ def definir_categoria_veiculo(modelo: str, opcionais: str = "") -> Optional[str]
 
     return None # Nenhuma correspondência encontrada
 
-def inferir_cilindrada_e_categoria_moto(modelo: str) -> Tuple[Optional[int], Optional[str]]:
+def inferir_cilindrada_e_categoria_moto(modelo: str, versao: str = "") -> Tuple[Optional[int], Optional[str]]:
     """
-    Infere cilindrada e categoria para motocicletas baseado no modelo.
+    Infere cilindrada e categoria para motocicletas baseado no modelo e versão.
+    Busca primeiro no modelo, depois na versão se não encontrar.
     Retorna uma tupla (cilindrada, categoria).
     """
-    if not modelo: 
+    def buscar_no_texto(texto: str) -> Tuple[Optional[int], Optional[str]]:
+        if not texto: 
+            return None, None
+        
+        texto_norm = normalizar_texto(texto)
+        
+        # Busca exata primeiro
+        if texto_norm in MAPEAMENTO_MOTOS:
+            cilindrada, categoria = MAPEAMENTO_MOTOS[texto_norm]
+            return cilindrada, categoria
+        
+        # Busca por correspondência parcial - ordena por comprimento (mais específico primeiro)
+        matches = []
+        for modelo_mapeado, (cilindrada, categoria) in MAPEAMENTO_MOTOS.items():
+            modelo_mapeado_norm = normalizar_texto(modelo_mapeado)
+            
+            # Verifica se o modelo mapeado está contido no texto
+            if modelo_mapeado_norm in texto_norm:
+                matches.append((modelo_mapeado_norm, cilindrada, categoria, len(modelo_mapeado_norm)))
+            
+            # Verifica também variações sem espaço (ybr150 vs ybr 150)
+            modelo_sem_espaco = modelo_mapeado_norm.replace(' ', '')
+            if modelo_sem_espaco in texto_norm:
+                matches.append((modelo_sem_espaco, cilindrada, categoria, len(modelo_sem_espaco)))
+        
+        # Se encontrou correspondências, retorna a mais específica (maior comprimento)
+        if matches:
+            # Ordena por comprimento decrescente para pegar a correspondência mais específica
+            matches.sort(key=lambda x: x[3], reverse=True)
+            _, cilindrada, categoria, _ = matches[0]
+            return cilindrada, categoria
+        
         return None, None
     
-    modelo_norm = normalizar_texto(modelo)
+    # Busca primeiro no modelo
+    cilindrada, categoria = buscar_no_texto(modelo)
     
-    # Busca exata primeiro
-    if modelo_norm in MAPEAMENTO_MOTOS:
-        cilindrada, categoria = MAPEAMENTO_MOTOS[modelo_norm]
-        return cilindrada, categoria
+    # Se não encontrou e tem versão, busca na versão
+    if not cilindrada and versao:
+        cilindrada, categoria = buscar_no_texto(versao)
     
-    # Busca por correspondência parcial - ordena por comprimento (mais específico primeiro)
-    matches = []
-    for modelo_mapeado, (cilindrada, categoria) in MAPEAMENTO_MOTOS.items():
-        modelo_mapeado_norm = normalizar_texto(modelo_mapeado)
-        
-        # Verifica se o modelo mapeado está contido no modelo do feed
-        if modelo_mapeado_norm in modelo_norm:
-            matches.append((modelo_mapeado_norm, cilindrada, categoria, len(modelo_mapeado_norm)))
-        
-        # Verifica também variações sem espaço (ybr150 vs ybr 150)
-        modelo_sem_espaco = modelo_mapeado_norm.replace(' ', '')
-        if modelo_sem_espaco in modelo_norm:
-            matches.append((modelo_sem_espaco, cilindrada, categoria, len(modelo_sem_espaco)))
-    
-    # Se encontrou correspondências, retorna a mais específica (maior comprimento)
-    if matches:
-        # Ordena por comprimento decrescente para pegar a correspondência mais específica
-        matches.sort(key=lambda x: x[3], reverse=True)
-        _, cilindrada, categoria, _ = matches[0]
-        return cilindrada, categoria
-    
-    return None, None
+    return cilindrada, categoria
 
-def inferir_cilindrada(modelo: str) -> Optional[int]:
+def inferir_cilindrada(modelo: str, versao: str = "") -> Optional[int]:
     """Função legada para compatibilidade - retorna apenas cilindrada"""
-    cilindrada, _ = inferir_cilindrada_e_categoria_moto(modelo)
+    cilindrada, _ = inferir_cilindrada_e_categoria_moto(modelo, versao)
     return cilindrada
-
-def converter_preco(valor: Any) -> float:
-    if not valor: return 0.0
-    try:
-        if isinstance(valor, (int, float)): return float(valor)
-        valor_str = str(valor)
-        valor_str = re.sub(r'[^\d,.]', '', valor_str).replace(',', '.')
-        parts = valor_str.split('.')
-        if len(parts) > 2: valor_str = ''.join(parts[:-1]) + '.' + parts[-1]
-        return float(valor_str) if valor_str else 0.0
-    except (ValueError, TypeError): return 0.0
-
-def safe_get(data: Dict, keys: Union[str, List[str]], default: Any = None) -> Any:
-    if isinstance(keys, str): keys = [keys]
-    for key in keys:
-        if isinstance(data, dict) and key in data and data[key] is not None:
-            return data[key]
-    return default
-
-def flatten_list(data: Any) -> List[Dict]:
-    if not data: return []
-    if isinstance(data, list):
-        result = []
-        for item in data:
-            if isinstance(item, dict): result.append(item)
-            elif isinstance(item, list): result.extend(flatten_list(item))
-        return result
-    elif isinstance(data, dict): return [data]
-    return []
-
-def normalize_fotos(fotos_data: Any) -> List[str]:
-    """
-    Normaliza diferentes estruturas de fotos para uma lista simples de URLs.
-    
-    Entrada aceitas:
-    - Lista simples de URLs: ["url1", "url2"]  
-    - Lista aninhada: [["url1", "url2"], ["url3"]]
-    - Lista de objetos: [{"url": "url1"}, {"IMAGE_URL": "url2"}]
-    - Objeto único: {"url": "url1"}
-    - String única: "url1"
-    
-    Retorna sempre: ["url1", "url2", "url3"]
-    """
-    if not fotos_data:
-        return []
-    
-    result = []
-    
-    def extract_url_from_item(item):
-        """Extrai URL de um item que pode ser string, dict ou outro tipo"""
-        if isinstance(item, str):
-            return item.strip()
-        elif isinstance(item, dict):
-            # Tenta várias chaves possíveis para URL
-            for key in ["url", "URL", "src", "IMAGE_URL", "path", "link", "href"]:
-                if key in item and item[key]:
-                    url = str(item[key]).strip()
-                    # Remove parâmetros de query se houver
-                    return url.split("?")[0] if "?" in url else url
-        return None
-    
-    def process_item(item):
-        """Processa um item que pode ser string, lista ou dict"""
-        if isinstance(item, str):
-            url = extract_url_from_item(item)
-            if url:
-                result.append(url)
-        elif isinstance(item, list):
-            # Lista aninhada - processa cada subitem
-            for subitem in item:
-                process_item(subitem)
-        elif isinstance(item, dict):
-            url = extract_url_from_item(item)
-            if url:
-                result.append(url)
-    
-    # Processa a estrutura principal
-    if isinstance(fotos_data, list):
-        for item in fotos_data:
-            process_item(item)
-    else:
-        process_item(fotos_data)
-    
-    # Remove duplicatas e URLs vazias, mantém a ordem
-    seen = set()
-    normalized = []
-    for url in result:
-        if url and url not in seen:
-            seen.add(url)
-            normalized.append(url)
-    
-    return normalized
-
-# =================== PARSERS =======================
-
-class BaseParser(ABC):
-    @abstractmethod
-    def can_parse(self, data: Any, url: str) -> bool: pass
-    
-    @abstractmethod
-    def parse(self, data: Any, url: str) -> List[Dict]: pass
-    
-    def normalize_vehicle(self, vehicle: Dict) -> Dict:
-        # Aplica normalização nas fotos antes de retornar
-        fotos = vehicle.get("fotos", [])
-        vehicle["fotos"] = normalize_fotos(fotos)
-        
-        return {
-            "id": vehicle.get("id"), "tipo": vehicle.get("tipo"), "titulo": vehicle.get("titulo"),
-            "versao": vehicle.get("versao"), "marca": vehicle.get("marca"), "modelo": vehicle.get("modelo"),
-            "ano": vehicle.get("ano"), "ano_fabricacao": vehicle.get("ano_fabricacao"), "km": vehicle.get("km"),
-            "cor": vehicle.get("cor"), "combustivel": vehicle.get("combustivel"), "cambio": vehicle.get("cambio"),
-            "motor": vehicle.get("motor"), "portas": vehicle.get("portas"), "categoria": vehicle.get("categoria"),
-            "cilindrada": vehicle.get("cilindrada"), "preco": vehicle.get("preco", 0.0),
-            "opcionais": vehicle.get("opcionais", ""), "fotos": vehicle.get("fotos", [])
-        }
-
-class AltimusParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, dict) and "veiculos" in data
-    
-    def parse(self, data: Any, url: str) -> List[Dict]:
-        veiculos = data.get("veiculos", [])
-        if isinstance(veiculos, dict): veiculos = [veiculos]
-        
-        parsed_vehicles = []
-        for v in veiculos:
-            modelo_veiculo = v.get("modelo")
-            opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
-            
-            # Determina se é moto ou carro
-            tipo_veiculo = v.get("tipo", "").lower()
-            is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
-            
-            if is_moto:
-                # Para motos: usa o novo sistema
-                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
-            else:
-                # Para carros: usa o sistema existente
-                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-                cilindrada_final = v.get("cilindrada") or inferir_cilindrada(modelo_veiculo)
-            
-            parsed = self.normalize_vehicle({
-                "id": v.get("id"), 
-                "tipo": "moto" if is_moto else ("carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo")), 
-                "titulo": None, "versao": v.get("versao"),
-                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
-                "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
-                "cor": v.get("cor"), "combustivel": v.get("combustivel"), 
-                "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
-                "motor": re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))).group(1) if re.search(r'\b(\d+\.\d+)\b', str(v.get("versao", ""))) else None, 
-                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
-                "cilindrada": cilindrada_final,
-                "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
-                "opcionais": opcionais_veiculo, "fotos": v.get("fotos", [])
-            })
-            parsed_vehicles.append(parsed)
-        return parsed_vehicles
-    
-    def _parse_opcionais(self, opcionais: Any) -> str:
-        if isinstance(opcionais, list): return ", ".join(str(item) for item in opcionais if item)
-        return str(opcionais) if opcionais else ""
-
-class AutocertoParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, dict) and "estoque" in data and "veiculo" in data.get("estoque", {})
-    
-    def parse(self, data: Any, url: str) -> List[Dict]:
-        veiculos = data["estoque"]["veiculo"]
-        if isinstance(veiculos, dict): veiculos = [veiculos]
-        
-        parsed_vehicles = []
-        for v in veiculos:
-            modelo_veiculo = v.get("modelo")
-            opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
-            
-            # Determina se é moto ou carro
-            tipo_veiculo = v.get("tipoveiculo", "").lower()
-            is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
-            
-            if is_moto:
-                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
-            else:
-                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-                cilindrada_final = inferir_cilindrada(modelo_veiculo)
-
-            parsed = self.normalize_vehicle({
-                "id": v.get("idveiculo"), 
-                "tipo": "moto" if is_moto else v.get("tipoveiculo"), 
-                "titulo": None, 
-                "versao": ((v.get('modelo', '').strip() + ' ' + ' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|gasolina|manual|automático|4p)\b', '', v.get('versao', ''), flags=re.IGNORECASE).split())).strip()) if v.get("versao") else (v.get("modelo", "").strip() or None),
-                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anomodelo"), "ano_fabricacao": None,
-                "km": v.get("quilometragem"), "cor": v.get("cor"), "combustivel": v.get("combustivel"),
-                "cambio": v.get("cambio"), 
-                "motor": v.get("versao", "").strip().split()[0] if v.get("versao") else None, 
-                "portas": v.get("numeroportas"), "categoria": categoria_final,
-                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("preco")),
-                "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
-            })
-            parsed_vehicles.append(parsed)
-        return parsed_vehicles
-
-    def _parse_opcionais(self, opcionais: Any) -> str:
-        if isinstance(opcionais, dict) and "opcional" in opcionais:
-            opcional = opcionais["opcional"]
-            if isinstance(opcional, list): return ", ".join(str(item) for item in opcional if item)
-            return str(opcional) if opcional else ""
-        return ""
-    
-    def extract_photos(self, v: Dict) -> List[str]:
-        fotos = v.get("fotos")
-        if not fotos or not (fotos_foto := fotos.get("foto")): return []
-        if isinstance(fotos_foto, dict): fotos_foto = [fotos_foto]
-        return [img["url"].split("?")[0] for img in fotos_foto if isinstance(img, dict) and "url" in img]
-
-class AutoconfParser(BaseParser):
-    # Mapeamento de categorias específico do Autoconf
-    CATEGORIA_MAPPING = {
-        "conversivel/cupe": "Conversível",
-        "conversível/cupê": "Conversível", 
-        "picapes": "Caminhonete",
-        "suv / utilitario esportivo": "SUV",
-        "suv / utilitário esportivo": "SUV",
-        "suv": "SUV",
-        "van/utilitario": "Utilitário",
-        "van/utilitário": "Utilitário",
-        "wagon/perua": "Minivan",
-        "perua": "Minivan"
-    }
-    
-    def can_parse(self, data: Any, url: str) -> bool:
-        base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
-        if not base_check: return False
-        return "autoconf" in url
-    
-    def parse(self, data: Any, url: str) -> List[Dict]:
-        ads = data["ADS"]["AD"]
-        if isinstance(ads, dict): ads = [ads]
-        
-        parsed_vehicles = []
-        for v in ads:
-            modelo_veiculo = v.get("MODEL")
-            opcionais_veiculo = self._parse_features(v.get("FEATURES"))
-            
-            # Determina se é moto ou carro
-            categoria_veiculo = v.get("CATEGORY", "").lower()
-            is_moto = categoria_veiculo == "motos" or "moto" in categoria_veiculo
-            
-            if is_moto:
-                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
-                tipo_final = "moto"
-            else:
-                # Para carros, usa SEMPRE o campo BODY e aplica o mapeamento específico
-                body_category = v.get("BODY", "").lower().strip()
-                categoria_final = self.CATEGORIA_MAPPING.get(body_category, v.get("BODY"))
-                
-                cilindrada_final = inferir_cilindrada(modelo_veiculo)
-                tipo_final = "carro" if categoria_veiculo == "carros" else categoria_veiculo
-
-            parsed = self.normalize_vehicle({
-                "id": v.get("ID"), 
-                "tipo": tipo_final,
-                "titulo": None, 
-                "versao": (' '.join(re.sub(r'\b(\d\.\d|4x[0-4]|\d+v|diesel|flex|aut|aut.|dies|dies.|mec.|mec|gasolina|manual|automático|4p)\b', '', v.get('VERSION', ''), flags=re.IGNORECASE).split()).strip()) if v.get("VERSION") else None,
-                "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"), "ano_fabricacao": v.get("FABRIC_YEAR"),
-                "km": v.get("MILEAGE"), "cor": v.get("COLOR"), "combustivel": v.get("FUEL"),
-                "cambio": v.get("gear") or v.get("GEAR"), "motor": v.get("MOTOR"), "portas": v.get("DOORS"),
-                "categoria": categoria_final, 
-                "cilindrada": cilindrada_final,
-                "preco": converter_preco(v.get("PRICE")), "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
-            })
-            parsed_vehicles.append(parsed)
-        return parsed_vehicles
-    
-    def _parse_features(self, features: Any) -> str:
-        if not features: return ""
-        if isinstance(features, list):
-            return ", ".join(feat.get("FEATURE", "") if isinstance(feat, dict) else str(feat) for feat in features)
-        return str(features)
-    
-    def extract_photos(self, v: Dict) -> List[str]:
-        images = v.get("IMAGES", [])
-        if not images: return []
-    
-        # Se é uma lista (múltiplos IMAGES)
-        if isinstance(images, list):
-            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
-    
-        # Se é um dict único
-        elif isinstance(images, dict) and images.get("IMAGE_URL"):
-            return [images["IMAGE_URL"]]
-        
-        return []
-
-class RevendamaisParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool:
-       base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
-       if not base_check: return False
-       return "revendamais" in url
-
-    def parse(self, data: Any, url: str) -> List[Dict]:
-        ads = data["ADS"]["AD"]
-        if isinstance(ads, dict): ads = [ads]
-        
-        parsed_vehicles = []
-        for v in ads:
-            modelo_veiculo = v.get("MODEL")
-            opcionais_veiculo = v.get("ACCESSORIES") or ""
-            
-            # Determina se é moto ou carro
-            categoria_veiculo = v.get("CATEGORY", "").lower()
-            is_moto = categoria_veiculo == "motocicleta" or "moto" in categoria_veiculo
-            
-            if is_moto:
-                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
-                tipo_final = "moto"
-            else:
-                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-                cilindrada_final = inferir_cilindrada(modelo_veiculo)
-                tipo_final = v.get("CATEGORY")
-
-            parsed = self.normalize_vehicle({
-                "id": v.get("ID"), "tipo": tipo_final, "titulo": v.get("TITLE"), "versao": None,
-                "marca": v.get("MAKE"), "modelo": modelo_veiculo, "ano": v.get("YEAR"),
-                "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
-                "combustivel": v.get("FUEL"), "cambio": v.get("GEAR"), "motor": v.get("MOTOR"),
-                "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
-                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("PRICE")),
-                "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
-            })
-            parsed_vehicles.append(parsed)
-        return parsed_vehicles
-    
-    def extract_photos(self, v: Dict) -> List[str]:
-        images = v.get("IMAGES", [])
-        if not images: return []
-        
-        if isinstance(images, list):
-            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
-        elif isinstance(images, dict) and images.get("IMAGE_URL"):
-            return [images["IMAGE_URL"]]
-        
-        return []
-
-class BoomParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, (dict, list))
-    
-    def parse(self, data: Any, url: str) -> List[Dict]:
-        veiculos = []
-        if isinstance(data, list): veiculos = flatten_list(data)
-        elif isinstance(data, dict):
-            for key in ['veiculos', 'vehicles', 'data', 'items', 'results', 'content']:
-                if key in data: veiculos = flatten_list(data[key]); break
-            if not veiculos and self._looks_like_vehicle(data): veiculos = [data]
-        
-        parsed_vehicles = []
-        for v in veiculos:
-            if not isinstance(v, dict): continue
-            
-            modelo_veiculo = safe_get(v, ["modelo", "model", "nome", "MODEL"])
-            opcionais_veiculo = self._parse_opcionais(safe_get(v, ["opcionais", "options", "extras", "features", "FEATURES"]))
-            
-            # Determina se é moto ou carro baseado em campos disponíveis
-            tipo_veiculo = safe_get(v, ["tipo", "type", "categoria_veiculo", "CATEGORY", "vehicle_type"]) or ""
-            is_moto = any(termo in str(tipo_veiculo).lower() for termo in ["moto", "motocicleta", "motorcycle", "bike"])
-            
-            if is_moto:
-                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo)
-                tipo_final = "moto"
-            else:
-                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-                cilindrada_final = safe_get(v, ["cilindrada", "displacement", "engine_size"]) or inferir_cilindrada(modelo_veiculo)
-                tipo_final = tipo_veiculo or "carro"
-
-            parsed = self.normalize_vehicle({
-                "id": safe_get(v, ["id", "ID", "codigo", "cod"]), 
-                "tipo": tipo_final,
-                "titulo": safe_get(v, ["titulo", "title", "TITLE"]), 
-                "versao": safe_get(v, ["versao", "version", "variant", "VERSION"]),
-                "marca": safe_get(v, ["marca", "brand", "fabricante", "MAKE"]), 
-                "modelo": modelo_veiculo,
-                "ano": safe_get(v, ["ano_mod", "anoModelo", "ano", "year_model", "ano_modelo", "YEAR"]),
-                "ano_fabricacao": safe_get(v, ["ano_fab", "anoFabricacao", "ano_fabricacao", "year_manufacture", "FABRIC_YEAR"]),
-                "km": safe_get(v, ["km", "quilometragem", "mileage", "kilometers", "MILEAGE"]), 
-                "cor": safe_get(v, ["cor", "color", "colour", "COLOR"]),
-                "combustivel": safe_get(v, ["combustivel", "fuel", "fuel_type", "FUEL"]), 
-                "cambio": safe_get(v, ["cambio", "transmission", "gear", "GEAR"]),
-                "motor": safe_get(v, ["motor", "engine", "motorization", "MOTOR"]), 
-                "portas": safe_get(v, ["portas", "doors", "num_doors", "DOORS"]),
-                "categoria": categoria_final or safe_get(v, ["categoria", "category", "class", "BODY"]),
-                "cilindrada": cilindrada_final,
-                "preco": converter_preco(safe_get(v, ["valor", "valorVenda", "preco", "price", "value", "PRICE"])),
-                "opcionais": opcionais_veiculo, "fotos": self._parse_fotos(v)
-            })
-            parsed_vehicles.append(parsed)
-        return parsed_vehicles
-    
-    def _looks_like_vehicle(self, data: Dict) -> bool: 
-        return any(field in data for field in ['modelo', 'model', 'marca', 'brand', 'preco', 'price', 'ano', 'year'])
-    
-    def _parse_opcionais(self, opcionais: Any) -> str:
-        if not opcionais: return ""
-        if isinstance(opcionais, list):
-            if all(isinstance(i, dict) for i in opcionais):
-                return ", ".join(name for item in opcionais if (name := safe_get(item, ["nome", "name", "descricao", "description", "FEATURE"])))
-            return ", ".join(str(item) for item in opcionais if item)
-        return str(opcionais)
-    
-    def _parse_fotos(self, v: Dict) -> List[str]:
-        fotos_data = safe_get(v, ["galeria", "fotos", "photos", "images", "gallery", "IMAGES"], [])
-        if not isinstance(fotos_data, list): fotos_data = [fotos_data] if fotos_data else []
-        
-        result = []
-        for foto in fotos_data:
-            if isinstance(foto, str): result.append(foto)
-            elif isinstance(foto, dict):
-                if url := safe_get(foto, ["url", "URL", "src", "IMAGE_URL", "path"]):
-                    result.append(url)
-        return result
-
-# =================== SISTEMA PRINCIPAL =======================
-
-class UnifiedVehicleFetcher:
-    def __init__(self):
-        self.parsers = [AltimusParser(), AutocertoParser(), RevendamaisParser(), AutoconfParser(), BoomParser()]
-        print("[INFO] Sistema unificado iniciado - detecção automática ativada com suporte a motos")
-    
-    def get_urls(self) -> List[str]: return list({val for var, val in os.environ.items() if var.startswith("XML_URL") and val})
-    
-    def detect_format(self, content: bytes, url: str) -> tuple[Any, str]:
-        content_str = content.decode('utf-8', errors='ignore')
-        try: return json.loads(content_str), "json"
-        except json.JSONDecodeError:
-            try: return xmltodict.parse(content_str), "xml"
-            except Exception: raise ValueError(f"Formato não reconhecido para URL: {url}")
-    
-    def process_url(self, url: str) -> List[Dict]:
-        print(f"[INFO] Processando URL: {url}")
-        try:
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-            data, format_type = self.detect_format(response.content, url)
-            print(f"[INFO] Formato detectado: {format_type}")
-            for parser in self.parsers:
-                if parser.can_parse(data, url):
-                    print(f"[INFO] Usando parser: {parser.__class__.__name__}")
-                    return parser.parse(data, url)
-            print(f"[AVISO] Nenhum parser adequado encontrado para URL: {url}")
-            return []
-        except requests.RequestException as e: print(f"[ERRO] Erro de requisição para URL {url}: {e}"); return []
-        except Exception as e: print(f"[ERRO] Erro crítico ao processar URL {url}: {e}"); return []
-    
-    def fetch_all(self) -> Dict:
-        urls = self.get_urls()
-        if not urls:
-            print("[AVISO] Nenhuma variável de ambiente 'XML_URL' foi encontrada.")
-            return {}
-        
-        print(f"[INFO] {len(urls)} URL(s) encontrada(s) para processar")
-        all_vehicles = [vehicle for url in urls for vehicle in self.process_url(url)]
-        
-        # Estatísticas por tipo e categoria
-        stats = self._generate_stats(all_vehicles)
-        
-        result = {
-            "veiculos": all_vehicles, 
-            "_updated_at": datetime.now().isoformat(), 
-            "_total_count": len(all_vehicles), 
-            "_sources_processed": len(urls),
-            "_statistics": stats
-        }
-        
-        try:
-            with open(JSON_FILE, "w", encoding="utf-8") as f: json.dump(result, f, ensure_ascii=False, indent=2)
-            print(f"\n[OK] Arquivo {JSON_FILE} salvo com sucesso!")
-        except Exception as e: print(f"[ERRO] Erro ao salvar arquivo JSON: {e}")
-        
-        print(f"[OK] Total de veículos processados: {len(all_vehicles)}")
-        self._print_stats(stats)
-        return result
-    
-    def _generate_stats(self, vehicles: List[Dict]) -> Dict:
-        """Gera estatísticas dos veículos processados"""
-        stats = {
-            "por_tipo": {},
-            "motos_por_categoria": {},
-            "carros_por_categoria": {},
-            "top_marcas": {},
-            "cilindradas_motos": {}
-        }
-        
-        for vehicle in vehicles:
-            # Estatísticas por tipo
-            tipo = vehicle.get("tipo", "indefinido")
-            stats["por_tipo"][tipo] = stats["por_tipo"].get(tipo, 0) + 1
-            
-            # Estatísticas por categoria
-            categoria = vehicle.get("categoria", "indefinido")
-            if tipo and "moto" in str(tipo).lower():
-                stats["motos_por_categoria"][categoria] = stats["motos_por_categoria"].get(categoria, 0) + 1
-                
-                # Cilindradas das motos
-                cilindrada = vehicle.get("cilindrada")
-                if cilindrada:
-                    range_key = self._get_cilindrada_range(cilindrada)
-                    stats["cilindradas_motos"][range_key] = stats["cilindradas_motos"].get(range_key, 0) + 1
-            else:
-                stats["carros_por_categoria"][categoria] = stats["carros_por_categoria"].get(categoria, 0) + 1
-            
-            # Top marcas
-            marca = vehicle.get("marca", "indefinido")
-            stats["top_marcas"][marca] = stats["top_marcas"].get(marca, 0) + 1
-        
-        return stats
-    
-    def _get_cilindrada_range(self, cilindrada: int) -> str:
-        """Categoriza cilindradas em faixas"""
-        if cilindrada <= 125:
-            return "até 125cc"
-        elif cilindrada <= 250:
-            return "126cc - 250cc"
-        elif cilindrada <= 500:
-            return "251cc - 500cc"
-        elif cilindrada <= 1000:
-            return "501cc - 1000cc"
-        else:
-            return "acima de 1000cc"
-    
-    def _print_stats(self, stats: Dict):
-        """Imprime estatísticas formatadas"""
-        print(f"\n{'='*60}\nESTATÍSTICAS DO PROCESSAMENTO\n{'='*60}")
-        
-        print(f"\n📊 Distribuição por Tipo:")
-        for tipo, count in sorted(stats["por_tipo"].items(), key=lambda x: x[1], reverse=True):
-            print(f"  • {tipo}: {count}")
-        
-        if stats["motos_por_categoria"]:
-            print(f"\n🏍️  Motos por Categoria:")
-            for categoria, count in sorted(stats["motos_por_categoria"].items(), key=lambda x: x[1], reverse=True):
-                print(f"  • {categoria}: {count}")
-        
-        if stats["carros_por_categoria"]:
-            print(f"\n🚗 Carros por Categoria:")
-            for categoria, count in sorted(stats["carros_por_categoria"].items(), key=lambda x: x[1], reverse=True)[:5]:
-                print(f"  • {categoria}: {count}")
-        
-        if stats["cilindradas_motos"]:
-            print(f"\n🔧 Cilindradas das Motos:")
-            for faixa, count in sorted(stats["cilindradas_motos"].items(), key=lambda x: x[1], reverse=True):
-                print(f"  • {faixa}: {count}")
-        
-        print(f"\n🏭 Top 5 Marcas:")
-        for marca, count in sorted(stats["top_marcas"].items(), key=lambda x: x[1], reverse=True)[:5]:
-            print(f"  • {marca}: {count}")
-
-# =================== FUNÇÃO PARA IMPORTAÇÃO =======================
-
-def fetch_and_convert_xml():
-    """Função de alto nível para ser importada por outros módulos."""
-    fetcher = UnifiedVehicleFetcher()
-    return fetcher.fetch_all()
-
-# =================== EXECUÇÃO PRINCIPAL (SE RODADO DIRETAMENTE) =======================
-
-if __name__ == "__main__":
-    result = fetch_and_convert_xml()
-    
-    if result and 'veiculos' in result:
-        total = result.get('_total_count', 0)
-        print(f"\n{'='*50}\nRESUMO DO PROCESSAMENTO\n{'='*50}")
-        print(f"Total de veículos: {total}")
-        print(f"Atualizado em: {result.get('_updated_at', 'N/A')}")
-        print(f"Fontes processadas: {result.get('_sources_processed', 0)}")
-        
-        if total > 0:
-            print(f"\nExemplo dos primeiros 5 veículos:")
-            for i, v in enumerate(result['veiculos'][:5], 1):
-                tipo = v.get('tipo', 'N/A')
-                categoria = v.get('categoria', 'N/A')
-                cilindrada = v.get('cilindrada', '')
-                cilindrada_str = f" - {cilindrada}cc" if cilindrada else ""
-                print(f"{i}. {v.get('marca', 'N/A')} {v.get('modelo', 'N/A')} ({tipo}/{categoria}{cilindrada_str}) {v.get('ano', 'N/A')} - R$ {v.get('preco', 0.0):,.2f}")
-            
-            # Exemplos específicos de motos categorizadas
-            motos = [v for v in result['veiculos'] if v.get('tipo') and 'moto' in str(v.get('tipo')).lower()]
-            if motos:
-                print(f"\nExemplos de motos categorizadas:")
-                for i, moto in enumerate(motos[:3], 1):
-                    print(f"{i}. {moto.get('marca', 'N/A')} {moto.get('modelo', 'N/A')} - {moto.get('categoria', 'N/A')} - {moto.get('cilindrada', 'N/A')}cc")
-            
-            # Demonstração da normalização de fotos
-            print(f"\nExemplos de fotos normalizadas:")
-            vehicles_with_photos = [v for v in result['veiculos'] if v.get('fotos')][:3]
-            for i, vehicle in enumerate(vehicles_with_photos, 1):
-                fotos = vehicle.get('fotos', [])
-                print(f"{i}. {vehicle.get('marca', 'N/A')} {vehicle.get('modelo', 'N/A')} - {len(fotos)} foto(s)")
-                if fotos:
-                    print(f"   Primeira foto: {fotos[0]}")
-                    if len(fotos) > 1:
-                        print(f"   Tipo da estrutura: Lista simples com {len(fotos)} URLs")
