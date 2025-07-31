@@ -78,6 +78,7 @@ MAPEAMENTO_MOTOS = {
     "cg125 fan ks": (125, "street"),  # Variação sem espaço
     "cg150 fan": (150, "street"),
     "cg 150 fan": (150, "street"),
+    "cg 150 fan esdi": (150, "street"),
     "cg150 titan": (150, "street"),
     "ybr 150": (150, "street"),
     "ybr150": (150, "street"),  # Variação sem espaço
@@ -106,6 +107,7 @@ MAPEAMENTO_MOTOS = {
     
     # Scooter (transmissão automática, design step-through)
     "biz 125": (125, "scooter"),
+    "adv 150": (150, "scooter"),
     "biz125": (125, "scooter"),  # Variação sem espaço
     "biz 125 es": (125, "scooter"),
     "biz125 es": (125, "scooter"),  # Variação sem espaço
