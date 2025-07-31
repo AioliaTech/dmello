@@ -60,6 +60,10 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 # Mapeamento combinado: cilindrada e categoria
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
+    "xy 150": (150, "street"),
+    "cg 150 sport": (150, "street"),
+    "YS 150 FAZER": (150, "street"),
+    "dk 160": (160, "street"),
     "cg 150 titan": (150, "street"),
     "cg150 titan": (150, "street"),  # Variação sem espaço
     "cg 160 titan": (160, "street"),
@@ -107,6 +111,9 @@ MAPEAMENTO_MOTOS = {
     
     # Scooter (transmissão automática, design step-through)
     "biz 125": (125, "scooter"),
+    "jet 50": (50, "scooter"),
+    "jl 50": (50, "scooter"),
+    "xy 125": (125, "scooter"),
     "adv 150": (150, "scooter"),
     "biz125": (125, "scooter"),  # Variação sem espaço
     "biz 125 es": (125, "scooter"),
@@ -136,6 +143,7 @@ MAPEAMENTO_MOTOS = {
     
     # Trail/Offroad (dual-sport, suspensão robusta)
     "nxr 150 bros": (150, "trail"),
+    "shi 175": (150, "trail"),
     "nxr150 bros": (150, "trail"),  # Variação sem espaço
     "nxr 160": (160, "trail"),
     "nxr160": (160, "trail"),  # Variação sem espaço
@@ -174,6 +182,7 @@ MAPEAMENTO_MOTOS = {
     
     # BigTrail/Adventure (alta cilindrada, touring)
     "crf 1100l": (1100, "bigtrail"),
+    "NC 750": (750, "bigtrail"),
     "crf1100l": (1100, "bigtrail"),
     "g 310": (300, "bigtrail"),
     "g310": (300, "bigtrail"),  # Variação sem espaço
@@ -305,6 +314,7 @@ MAPEAMENTO_MOTOS = {
     
     # Custom/Cruiser (posição relaxada, estética clássica)
     "iron 883": (883, "custom"),
+    "v-rod": (1250, "custom"),
     "iron883": (883, "custom"),  # Variação sem espaço
     "forty eight": (1200, "custom"),
     "sportster s": (1250, "custom"),
