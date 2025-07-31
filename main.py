@@ -937,14 +937,16 @@ def get_data(request: Request):
             if simples == "1":
                 fotos = vehicle_found.get("fotos")
                 if isinstance(fotos, list) and len(fotos) > 0:
-                # Se é uma lista simples de strings (seu caso atual)
-                if isinstance(fotos[0], str):
-                    vehicle_found["fotos"] = [fotos[0]]  # Mantém só a primeira foto
-                # Se é uma estrutura aninhada [["foto1", "foto2", ...]]
-                elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                    # Se é uma lista simples de strings (seu caso atual)
+                    if isinstance(fotos[0], str):
+                        vehicle_found["fotos"] = [fotos[0]]  # Mantém só a primeira foto
+                    # Se é uma estrutura aninhada [["foto1", "foto2", ...]]
+                    elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
                         vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
-            else:
+                    else:
                         vehicle_found["fotos"] = []
+else:
+    vehicle_found["fotos"] = []
 else:
     vehicle_found["fotos"] = []
             
