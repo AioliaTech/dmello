@@ -59,8 +59,6 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 
 # Mapeamento combinado: cilindrada e categoria
 MAPEAMENTO_MOTOS = {
-# Mapeamento combinado: cilindrada e categoria
-MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     "cg 150 titan": (150, "street"),
     "cg150 titan": (150, "street"),  # Variação sem espaço
