@@ -936,14 +936,17 @@ def get_data(request: Request):
             # Aplica modo simples se solicitado
             if simples == "1":
                 fotos = vehicle_found.get("fotos")
-                if isinstance(fotos, list) and len(fotos) > 0:
-                    # Estrutura: [["foto1", "foto2", ...]]
-                    if isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                    if isinstance(fotos, list) and len(fotos) > 0:
+                    # Se é uma lista simples de strings (seu caso atual)
+                    if isinstance(fotos[0], str):
+                        vehicle_found["fotos"] = [fotos[0]]  # Mantém só a primeira foto
+                    # Se é uma estrutura aninhada [["foto1", "foto2", ...]]
+                    elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
                         vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
-                    else:
+            else:
                         vehicle_found["fotos"] = []
-                else:
-                    vehicle_found["fotos"] = []
+else:
+    vehicle_found["fotos"] = []
             
             # Remove opcionais se não foi pesquisado por opcionais OU por ID
             if "opcionais" not in filters and not id_param and "opcionais" in vehicle_found:
