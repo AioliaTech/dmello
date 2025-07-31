@@ -77,6 +77,7 @@ MAPEAMENTO_MOTOS = {
     "cg 125 fan ks": (125, "street"),
     "cg125 fan ks": (125, "street"),  # Variação sem espaço
     "cg150 fan": (150, "street"),
+    "cg 150 fan": (150, "street"),
     "cg150 titan": (150, "street"),
     "ybr 150": (150, "street"),
     "ybr150": (150, "street"),  # Variação sem espaço
@@ -111,6 +112,7 @@ MAPEAMENTO_MOTOS = {
     "biz 110": (110, "scooter"),
     "biz110": (110, "scooter"),  # Variação sem espaço
     "biz es": (125, "scooter"),
+    "biz ex": (125, "scooter"),    
     "pop 110": (110, "scooter"),
     "pop110": (110, "scooter"),  # Variação sem espaço
     "pop 110i": (110, "scooter"),
@@ -150,6 +152,7 @@ MAPEAMENTO_MOTOS = {
     "sahara 300 rally": (300, "trail"),
     "sahara300 rally": (300, "trail"),  # Variação sem espaço
     "xr300l tornado": (300, "trail"),
+    "xr 300l tornado": (300, "trail"),
     "crf 230f": (230, "offroad"),
     "crf230f": (230, "offroad"),  # Variação sem espaço
     "dr 160": (160, "trail"),
@@ -168,6 +171,8 @@ MAPEAMENTO_MOTOS = {
     "lander250": (250, "trail"),  # Variação sem espaço
     
     # BigTrail/Adventure (alta cilindrada, touring)
+    "crf 1100l": (1100, "bigtrail"),
+    "crf1100l": (1100, "bigtrail"),
     "g 310": (300, "bigtrail"),
     "g310": (300, "bigtrail"),  # Variação sem espaço
     "g 310 gs": (300, "bigtrail"),
