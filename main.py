@@ -33,7 +33,7 @@ FALLBACK_PRIORITY = [
 # Mapeamento de categorias por modelo - Versão atualizada e melhorada
 MAPEAMENTO_CATEGORIAS = {}
 
-# Mapeamento combinado: cilindrada e categoria para motos
+# Mapeamento combinado: cilindrada e categoria para motos (deixando vazio conforme solicitado)
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     "cg 150 titan": (150, "street"),
@@ -60,7 +60,7 @@ MAPEAMENTO_MOTOS = {
     "cb twister": (300, "street"),
     "twister": (300, "street"),
     "next 300": (300, "street"),
-    
+
     # Scooter (transmissão automática, design step-through)
     "biz 125": (125, "scooter"),
     "biz 125 es": (125, "scooter"),
@@ -76,7 +76,7 @@ MAPEAMENTO_MOTOS = {
     "burgman 125": (125, "scooter"),
     "dafra citycom 300": (300, "scooter"),
     "citycom": (300, "scooter"),
-    
+
     # Trail/Offroad (dual-sport, suspensão robusta)
     "nxr 150 bros": (150, "trail"),
     "nxr 160": (160, "trail"),
@@ -96,7 +96,7 @@ MAPEAMENTO_MOTOS = {
     "xtz 250 tenere": (250, "trail"),
     "tenere 250": (250, "trail"),
     "lander 250": (250, "trail"),
-    
+
     # BigTrail/Adventure (alta cilindrada, touring)
     "g 310": (300, "bigtrail"),
     "g 310 gs": (300, "bigtrail"),
@@ -115,7 +115,7 @@ MAPEAMENTO_MOTOS = {
     "tiger 800": (800, "bigtrail"),
     "tiger 900": (900, "bigtrail"),
     "himalayan": (400, "bigtrail"),
-    
+
     # Esportiva Carenada (supersport, carenagem completa)
     "cbr 250": (250, "esportiva carenada"),
     "cbr 300": (300, "esportiva carenada"),
@@ -139,7 +139,7 @@ MAPEAMENTO_MOTOS = {
     "panigale v2": (950, "esportiva carenada"),
     "panigale v4": (1100, "esportiva carenada"),
     "hayabusa": (1350, "esportiva carenada"),
-    
+
     # Esportiva Naked (naked sport, sem carenagem)
     "mt 03": (300, "esportiva naked"),
     "mt-03": (300, "esportiva naked"),
@@ -177,7 +177,7 @@ MAPEAMENTO_MOTOS = {
     "street triple": (750, "esportiva naked"),
     "speed triple": (1050, "esportiva naked"),
     "trident 660": (660, "esportiva naked"),
-    
+
     # Custom/Cruiser (posição relaxada, estética clássica)
     "iron 883": (883, "custom"),
     "forty eight": (1200, "custom"),
@@ -192,7 +192,7 @@ MAPEAMENTO_MOTOS = {
     "r 18": (1800, "custom"),
     "bonneville": (900, "custom"),
     "mt 01": (1700, "custom"),
-    
+
     # Touring (longas distâncias, conforto)
     "road glide": (2150, "touring"),
     "street glide": (1750, "touring"),
@@ -200,12 +200,12 @@ MAPEAMENTO_MOTOS = {
     "k 1600": (1650, "touring"),
     "xt 660": (660, "touring"),
     "xt 600": (600, "touring"),
-    
+
     # ATV/Quadriciclo
     "cforce 1000": (1000, "custom"),
     "trx 420": (420, "custom"),
     "t350 x": (350, "custom"),
-    
+
     # Modelos especiais
     "commander 250": (250, "street"),
     "gk350": (350, "street"),
@@ -933,18 +933,20 @@ def get_data(request: Request):
                 break
         
         if vehicle_found:
-            # Aplica modo simples se solicitado
+            # Aplica modo simples se solicitado - CORRIGIDO
             if simples == "1":
                 fotos = vehicle_found.get("fotos")
                 if isinstance(fotos, list) and len(fotos) > 0:
-                    # Se é uma lista simples de strings (seu caso atual)
+                    # Estrutura simples ["foto1", "foto2", ...] - seu caso
                     if isinstance(fotos[0], str):
                         vehicle_found["fotos"] = [fotos[0]]  # Mantém só a primeira foto
-                    # Se é uma estrutura aninhada [["foto1", "foto2", ...]]
+                    # Estrutura aninhada [["foto1", "foto2", ...]]
                     elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
-                        vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
-            else:
-                vehicle_found["fotos"] = []
+                        vehicle_found["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada
+                    else:
+                        vehicle_found["fotos"] = []
+                else:
+                    vehicle_found["fotos"] = []
             
             # Remove opcionais se não foi pesquisado por opcionais OU por ID
             if "opcionais" not in filters and not id_param and "opcionais" in vehicle_found:
@@ -984,15 +986,17 @@ def get_data(request: Request):
         # Ordena por preço decrescente (padrão)
         sorted_vehicles = sorted(all_vehicles, key=lambda v: search_engine.convert_price(v.get("preco")) or 0, reverse=True)
         
-        # Aplica modo simples se solicitado
+        # Aplica modo simples se solicitado - CORRIGIDO
         if simples == "1":
-            # Mantém apenas a primeira foto de cada veículo
             for vehicle in sorted_vehicles:
                 fotos = vehicle.get("fotos")
                 if isinstance(fotos, list) and len(fotos) > 0:
-                    # Estrutura: [["foto1", "foto2", ...]]
-                    if isinstance(fotos[0], list) and len(fotos[0]) > 0:
-                        vehicle["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
+                    # Estrutura simples ["foto1", "foto2", ...] - seu caso
+                    if isinstance(fotos[0], str):
+                        vehicle["fotos"] = [fotos[0]]  # Mantém só a primeira foto
+                    # Estrutura aninhada [["foto1", "foto2", ...]]
+                    elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                        vehicle["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada
                     else:
                         vehicle["fotos"] = []
                 else:
@@ -1015,15 +1019,17 @@ def get_data(request: Request):
         vehicles, filters, valormax, anomax, kmmax, ccmax, excluded_ids
     )
     
-    # Aplica modo simples se solicitado
+    # Aplica modo simples se solicitado - CORRIGIDO
     if simples == "1" and result.vehicles:
-        # Mantém apenas a primeira foto de cada veículo
         for vehicle in result.vehicles:
             fotos = vehicle.get("fotos")
             if isinstance(fotos, list) and len(fotos) > 0:
-                # Estrutura: [["foto1", "foto2", ...]]
-                if isinstance(fotos[0], list) and len(fotos[0]) > 0:
-                    vehicle["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada com só a primeira foto
+                # Estrutura simples ["foto1", "foto2", ...] - seu caso
+                if isinstance(fotos[0], str):
+                    vehicle["fotos"] = [fotos[0]]  # Mantém só a primeira foto
+                # Estrutura aninhada [["foto1", "foto2", ...]]
+                elif isinstance(fotos[0], list) and len(fotos[0]) > 0:
+                    vehicle["fotos"] = [[fotos[0][0]]]  # Mantém estrutura aninhada
                 else:
                     vehicle["fotos"] = []
             else:
