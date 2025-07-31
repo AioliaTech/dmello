@@ -104,84 +104,140 @@ MAPEAMENTO_MOTOS = {
     "cb300": (300, "street"),  # Variação sem espaço
     "cb twister": (300, "street"),
     "twister": (300, "street"),
-    "next 300": (300, "street"),
-    "next300": (300, "street"),  # Variação sem espaço
     
     # Scooter (transmissão automática, design step-through)
     "biz 125": (125, "scooter"),
+    "biz125": (125, "scooter"),  # Variação sem espaço
     "biz 125 es": (125, "scooter"),
+    "biz125 es": (125, "scooter"),  # Variação sem espaço
     "biz 110": (110, "scooter"),
+    "biz110": (110, "scooter"),  # Variação sem espaço
     "biz es": (125, "scooter"),
     "pop 110": (110, "scooter"),
+    "pop110": (110, "scooter"),  # Variação sem espaço
     "pop 110i": (110, "scooter"),
+    "pop110i": (110, "scooter"),  # Variação sem espaço
     "pcx 150": (150, "scooter"),
+    "pcx150": (150, "scooter"),  # Variação sem espaço
     "pcx 160": (160, "scooter"),
+    "pcx160": (160, "scooter"),  # Variação sem espaço
     "elite 125": (125, "scooter"),
+    "elite125": (125, "scooter"),  # Variação sem espaço
     "nmax 160": (160, "scooter"),
+    "nmax160": (160, "scooter"),  # Variação sem espaço
     "xmax 250": (250, "scooter"),
+    "xmax250": (250, "scooter"),  # Variação sem espaço
     "burgman 125": (125, "scooter"),
+    "burgman125": (125, "scooter"),  # Variação sem espaço
     "dafra citycom 300": (300, "scooter"),
     "citycom": (300, "scooter"),
     
     # Trail/Offroad (dual-sport, suspensão robusta)
     "nxr 150 bros": (150, "trail"),
+    "nxr150 bros": (150, "trail"),  # Variação sem espaço
     "nxr 160": (160, "trail"),
+    "nxr160": (160, "trail"),  # Variação sem espaço
     "bros 160": (160, "trail"),
+    "bros160": (160, "trail"),  # Variação sem espaço
     "nxr 160 bros": (160, "trail"),
+    "nxr160 bros": (160, "trail"),  # Variação sem espaço
     "xre 190": (190, "trail"),
+    "xre190": (190, "trail"),  # Variação sem espaço
     "xre 300": (300, "trail"),
+    "xre300": (300, "trail"),  # Variação sem espaço
     "xre 300 sahara": (300, "trail"),
+    "xre300 sahara": (300, "trail"),  # Variação sem espaço
     "sahara 300": (300, "trail"),
+    "sahara300": (300, "trail"),  # Variação sem espaço
     "sahara 300 rally": (300, "trail"),
+    "sahara300 rally": (300, "trail"),  # Variação sem espaço
     "xr300l tornado": (300, "trail"),
     "crf 230f": (230, "offroad"),
+    "crf230f": (230, "offroad"),  # Variação sem espaço
     "dr 160": (160, "trail"),
+    "dr160": (160, "trail"),  # Variação sem espaço
     "dr 160 s": (160, "trail"),
+    "dr160 s": (160, "trail"),  # Variação sem espaço
     "xtz 150": (150, "trail"),
+    "xtz150": (150, "trail"),  # Variação sem espaço
     "xtz 250": (250, "trail"),
+    "xtz250": (250, "trail"),  # Variação sem espaço
     "xtz 250 tenere": (250, "trail"),
+    "xtz250 tenere": (250, "trail"),  # Variação sem espaço
     "tenere 250": (250, "trail"),
+    "tenere250": (250, "trail"),  # Variação sem espaço
     "lander 250": (250, "trail"),
+    "lander250": (250, "trail"),  # Variação sem espaço
     
     # BigTrail/Adventure (alta cilindrada, touring)
     "g 310": (300, "bigtrail"),
+    "g310": (300, "bigtrail"),  # Variação sem espaço
     "g 310 gs": (300, "bigtrail"),
+    "g310 gs": (300, "bigtrail"),  # Variação sem espaço
     "f 750 gs": (850, "bigtrail"),
+    "f750 gs": (850, "bigtrail"),  # Variação sem espaço
     "f 850 gs": (850, "bigtrail"),
+    "f850 gs": (850, "bigtrail"),  # Variação sem espaço
     "f 900": (900, "bigtrail"),
+    "f900": (900, "bigtrail"),  # Variação sem espaço
     "f 900 gs": (900, "bigtrail"),
+    "f900 gs": (900, "bigtrail"),  # Variação sem espaço
     "r 1250": (1250, "bigtrail"),
+    "r1250": (1250, "bigtrail"),  # Variação sem espaço
     "r 1250 gs": (1250, "bigtrail"),
+    "r1250 gs": (1250, "bigtrail"),  # Variação sem espaço
     "r 1300": (1300, "bigtrail"),
+    "r1300": (1300, "bigtrail"),  # Variação sem espaço
     "r 1300 gs": (1300, "bigtrail"),
+    "r1300 gs": (1300, "bigtrail"),  # Variação sem espaço
     "g 650 gs": (650, "bigtrail"),
+    "g650 gs": (650, "bigtrail"),  # Variação sem espaço
     "versys 300": (300, "bigtrail"),
+    "versys300": (300, "bigtrail"),  # Variação sem espaço
     "versys 650": (650, "bigtrail"),
+    "versys650": (650, "bigtrail"),  # Variação sem espaço
     "versys-x 300": (300, "bigtrail"),
+    "versysx 300": (300, "bigtrail"),  # Variação sem hífen
     "tiger 800": (800, "bigtrail"),
+    "tiger800": (800, "bigtrail"),  # Variação sem espaço
     "tiger 900": (900, "bigtrail"),
+    "tiger900": (900, "bigtrail"),  # Variação sem espaço
     "himalayan": (400, "bigtrail"),
     
     # Esportiva Carenada (supersport, carenagem completa)
     "cbr 250": (250, "esportiva carenada"),
+    "cbr250": (250, "esportiva carenada"),  # Variação sem espaço
     "cbr 300": (300, "esportiva carenada"),
+    "cbr300": (300, "esportiva carenada"),  # Variação sem espaço
     "cbr 500": (500, "esportiva carenada"),
+    "cbr500": (500, "esportiva carenada"),  # Variação sem espaço
     "cbr 600": (600, "esportiva carenada"),
+    "cbr600": (600, "esportiva carenada"),  # Variação sem espaço
     "cbr 650": (650, "esportiva carenada"),
+    "cbr650": (650, "esportiva carenada"),  # Variação sem espaço
     "cbr 1000": (1000, "esportiva carenada"),
+    "cbr1000": (1000, "esportiva carenada"),  # Variação sem espaço
     "cbr 1000r": (1000, "esportiva carenada"),
+    "cbr1000r": (1000, "esportiva carenada"),  # Variação sem espaço
     "yzf r3": (300, "esportiva carenada"),
     "yzf r-3": (300, "esportiva carenada"),
     "yzf r-6": (600, "esportiva carenada"),
     "r15": (150, "esportiva carenada"),
     "r1": (1000, "esportiva carenada"),
     "ninja 300": (300, "esportiva carenada"),
+    "ninja300": (300, "esportiva carenada"),  # Variação sem espaço
     "ninja 400": (400, "esportiva carenada"),
+    "ninja400": (400, "esportiva carenada"),  # Variação sem espaço
     "ninja 650": (650, "esportiva carenada"),
+    "ninja650": (650, "esportiva carenada"),  # Variação sem espaço
     "ninja 1000": (1050, "esportiva carenada"),
+    "ninja1000": (1050, "esportiva carenada"),  # Variação sem espaço
     "ninja zx-10r": (1000, "esportiva carenada"),
+    "ninja zx10r": (1000, "esportiva carenada"),  # Variação sem hífen
     "s 1000": (1000, "esportiva carenada"),
+    "s1000": (1000, "esportiva carenada"),  # Variação sem espaço
     "s 1000 rr": (1000, "esportiva carenada"),
+    "s1000 rr": (1000, "esportiva carenada"),  # Variação sem espaço
     "panigale v2": (950, "esportiva carenada"),
     "panigale v4": (1100, "esportiva carenada"),
     "hayabusa": (1350, "esportiva carenada"),
@@ -192,13 +248,20 @@ MAPEAMENTO_MOTOS = {
     "mt03": (300, "esportiva naked"),
     "mt 07": (690, "esportiva naked"),
     "mt-07": (690, "esportiva naked"),
+    "mt07": (690, "esportiva naked"),  # Variação sem hífen
     "mt 09": (890, "esportiva naked"),
     "mt-09": (890, "esportiva naked"),
+    "mt09": (890, "esportiva naked"),  # Variação sem hífen
     "cb 500": (500, "esportiva naked"),
+    "cb500": (500, "esportiva naked"),  # Variação sem espaço
     "cb 650": (650, "esportiva naked"),
+    "cb650": (650, "esportiva naked"),  # Variação sem espaço
     "cb 1000r": (1000, "esportiva naked"),
+    "cb1000r": (1000, "esportiva naked"),  # Variação sem espaço
     "hornet 600": (600, "esportiva naked"),
+    "hornet600": (600, "esportiva naked"),  # Variação sem espaço
     "cb 600f": (600, "esportiva naked"),
+    "cb600f": (600, "esportiva naked"),  # Variação sem espaço
     "xj6": (600, "esportiva naked"),
     "z300": (300, "esportiva naked"),
     "z400": (400, "esportiva naked"),
@@ -210,50 +273,78 @@ MAPEAMENTO_MOTOS = {
     "er6n": (650, "esportiva naked"),
     "er-6n": (650, "esportiva naked"),
     "bandit 600": (600, "esportiva naked"),
+    "bandit600": (600, "esportiva naked"),  # Variação sem espaço
     "bandit 650": (650, "esportiva naked"),
+    "bandit650": (650, "esportiva naked"),  # Variação sem espaço
     "bandit 1250": (1250, "esportiva naked"),
+    "bandit1250": (1250, "esportiva naked"),  # Variação sem espaço
     "gsx 650f": (650, "esportiva naked"),
+    "gsx650f": (650, "esportiva naked"),  # Variação sem espaço
     "gsx-s 750": (750, "esportiva naked"),
+    "gsxs 750": (750, "esportiva naked"),  # Variação sem hífen
     "gsx-s 1000": (1000, "esportiva naked"),
+    "gsxs 1000": (1000, "esportiva naked"),  # Variação sem hífen
     "gixxer 250": (250, "esportiva naked"),
+    "gixxer250": (250, "esportiva naked"),  # Variação sem espaço
     "gs500": (500, "esportiva naked"),
     "monster 797": (800, "esportiva naked"),
+    "monster797": (800, "esportiva naked"),  # Variação sem espaço
     "monster 821": (820, "esportiva naked"),
+    "monster821": (820, "esportiva naked"),  # Variação sem espaço
     "monster 937": (940, "esportiva naked"),
+    "monster937": (940, "esportiva naked"),  # Variação sem espaço
     "street triple": (750, "esportiva naked"),
     "speed triple": (1050, "esportiva naked"),
     "trident 660": (660, "esportiva naked"),
+    "trident660": (660, "esportiva naked"),  # Variação sem espaço
     
     # Custom/Cruiser (posição relaxada, estética clássica)
     "iron 883": (883, "custom"),
+    "iron883": (883, "custom"),  # Variação sem espaço
     "forty eight": (1200, "custom"),
     "sportster s": (1250, "custom"),
     "fat bob": (1140, "custom"),
     "meteor 350": (350, "custom"),
+    "meteor350": (350, "custom"),  # Variação sem espaço
     "classic 350": (350, "custom"),
+    "classic350": (350, "custom"),  # Variação sem espaço
     "hunter 350": (350, "custom"),
+    "hunter350": (350, "custom"),  # Variação sem espaço
     "interceptor 650": (650, "custom"),
+    "interceptor650": (650, "custom"),  # Variação sem espaço
     "continental gt 650": (650, "custom"),
+    "continental gt650": (650, "custom"),  # Variação sem espaço
     "diavel 1260": (1260, "custom"),
+    "diavel1260": (1260, "custom"),  # Variação sem espaço
     "r 18": (1800, "custom"),
+    "r18": (1800, "custom"),  # Variação sem espaço
     "bonneville": (900, "custom"),
     "mt 01": (1700, "custom"),
+    "mt01": (1700, "custom"),  # Variação sem espaço
     
     # Touring (longas distâncias, conforto)
     "road glide": (2150, "touring"),
     "street glide": (1750, "touring"),
     "k 1300": (1300, "touring"),
+    "k1300": (1300, "touring"),  # Variação sem espaço
     "k 1600": (1650, "touring"),
+    "k1600": (1650, "touring"),  # Variação sem espaço
     "xt 660": (660, "touring"),
+    "xt660": (660, "touring"),  # Variação sem espaço
     "xt 600": (600, "touring"),
+    "xt600": (600, "touring"),  # Variação sem espaço
     
     # ATV/Quadriciclo
     "cforce 1000": (1000, "custom"),
+    "cforce1000": (1000, "custom"),  # Variação sem espaço
     "trx 420": (420, "custom"),
+    "trx420": (420, "custom"),  # Variação sem espaço
     "t350 x": (350, "custom"),
+    "t350x": (350, "custom"),  # Variação sem espaço
     
     # Modelos especiais
     "commander 250": (250, "street"),
+    "commander250": (250, "street"),  # Variação sem espaço
     "gk350": (350, "street"),
 }
 
