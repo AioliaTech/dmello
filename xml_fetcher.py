@@ -110,6 +110,8 @@ MAPEAMENTO_MOTOS = {
     "twister": (300, "street"),
     
     # Scooter (transmissão automática, design step-through)
+    
+    "SH 300": (300, "scooter"),
     "biz 125": (125, "scooter"),
     "jet 50": (50, "scooter"),
     "jl 50": (50, "scooter"),
@@ -181,6 +183,11 @@ MAPEAMENTO_MOTOS = {
     "lander250": (250, "trail"),  # Variação sem espaço
     
     # BigTrail/Adventure (alta cilindrada, touring)
+    "DL 650 XT": (650, "bigtrail"),
+    "R 1200 GS": (1200, "bigtrail"),
+    "DL 1000": (1000, "bigtrail"),
+    "PAN AMERICA 1250": (1250, "bigtrail"),
+    "crf 1100l": (1100, "bigtrail"),
     "crf 1100l": (1100, "bigtrail"),
     "NC 750": (750, "bigtrail"),
     "crf1100l": (1100, "bigtrail"),
@@ -219,6 +226,8 @@ MAPEAMENTO_MOTOS = {
     "himalayan": (400, "bigtrail"),
     
     # Esportiva Carenada (supersport, carenagem completa)
+    "GSX-R 1000": (1000, "esportiva carenada"),
+    "s 1000 rr": (1000, "esportiva carenada"),
     "cbr 250": (250, "esportiva carenada"),
     "cbr250": (250, "esportiva carenada"),  # Variação sem espaço
     "cbr 300": (300, "esportiva carenada"),
@@ -313,6 +322,8 @@ MAPEAMENTO_MOTOS = {
     "trident660": (660, "esportiva naked"),  # Variação sem espaço
     
     # Custom/Cruiser (posição relaxada, estética clássica)
+    "FAT BOY": (1690, "custom"),
+    "NIGHTSTER SPECIAL": (975, "custom"),
     "iron 883": (883, "custom"),
     "v-rod": (1250, "custom"),
     "iron883": (883, "custom"),  # Variação sem espaço
@@ -338,6 +349,8 @@ MAPEAMENTO_MOTOS = {
     "mt01": (1700, "custom"),  # Variação sem espaço
     
     # Touring (longas distâncias, conforto)
+    "ELECTRA GLIDE ULTRA": (1700, "touring"),
+    "GOLD WING 1500": (1500, "touring"),
     "road glide": (2150, "touring"),
     "street glide": (1750, "touring"),
     "k 1300": (1300, "touring"),
