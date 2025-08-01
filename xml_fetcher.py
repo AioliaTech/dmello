@@ -183,6 +183,7 @@ MAPEAMENTO_MOTOS = {
     "lander250": (250, "trail"),  # Variação sem espaço
     
     # BigTrail/Adventure (alta cilindrada, touring)
+    "DL 650 ": (650, "bigtrail"),
     "DL 650 XT": (650, "bigtrail"),
     "R 1200 GS": (1200, "bigtrail"),
     "DL 1000": (1000, "bigtrail"),
@@ -266,6 +267,7 @@ MAPEAMENTO_MOTOS = {
     "hayabusa": (1350, "esportiva carenada"),
     
     # Esportiva Naked (naked sport, sem carenagem)
+    "Z 1000": (1000, "esportiva naked"),
     "mt 03": (300, "esportiva naked"),
     "mt-03": (300, "esportiva naked"),
     "mt03": (300, "esportiva naked"),
