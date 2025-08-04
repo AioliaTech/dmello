@@ -60,6 +60,7 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 # Mapeamento combinado: cilindrada e categoria
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
+    "FZ15 150": (150, "street"),
     "xy 150": (150, "street"),
     "cg 150 sport": (150, "street"),
     "YS 150 FAZER": (150, "street"),
