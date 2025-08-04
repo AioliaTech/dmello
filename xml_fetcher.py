@@ -60,6 +60,9 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 # Mapeamento combinado: cilindrada e categoria
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
+    
+    "DK 150": (150, "street"),    
+    "FAN Flex": (160, "street"),    
     "FZ15 150": (150, "street"),
     "xy 150": (150, "street"),
     "cg 150 sport": (150, "street"),
@@ -182,6 +185,7 @@ MAPEAMENTO_MOTOS = {
     "tenere250": (250, "trail"),  # Variação sem espaço
     "lander 250": (250, "trail"),
     "lander250": (250, "trail"),  # Variação sem espaço
+    "falcon": (400, "trail"),
     
     # BigTrail/Adventure (alta cilindrada, touring)
     "cb 500x": (500, "bigtrail"),   
@@ -269,7 +273,7 @@ MAPEAMENTO_MOTOS = {
     "hayabusa": (1350, "esportiva carenada"),
     
     # Esportiva Naked (naked sport, sem carenagem)
-    
+    "Z 400": (1000, "esportiva naked"),    
     "310 R": (1000, "esportiva naked"),
     "Z 1000": (1000, "esportiva naked"),
     "mt 03": (300, "esportiva naked"),
