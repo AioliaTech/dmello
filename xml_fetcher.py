@@ -268,6 +268,8 @@ MAPEAMENTO_MOTOS = {
     "hayabusa": (1350, "esportiva carenada"),
     
     # Esportiva Naked (naked sport, sem carenagem)
+    
+    "310 R": (1000, "esportiva naked"),
     "Z 1000": (1000, "esportiva naked"),
     "mt 03": (300, "esportiva naked"),
     "mt-03": (300, "esportiva naked"),
@@ -432,53 +434,57 @@ def definir_categoria_veiculo(modelo: str, opcionais: str = "") -> Optional[str]
     return None # Nenhuma correspondência encontrada
 
 def inferir_cilindrada_e_categoria_moto(modelo: str, versao: str = "") -> Tuple[Optional[int], Optional[str]]:
-    """
-    Infere cilindrada e categoria para motocicletas baseado no modelo e versão.
-    Busca primeiro no modelo, depois na versão se não encontrar.
-    Retorna uma tupla (cilindrada, categoria).
-    """
-    def buscar_no_texto(texto: str) -> Tuple[Optional[int], Optional[str]]:
-        if not texto: 
-            return None, None
-        
-        texto_norm = normalizar_texto(texto)
-        
-        # Busca exata primeiro
-        if texto_norm in MAPEAMENTO_MOTOS:
-            cilindrada, categoria = MAPEAMENTO_MOTOS[texto_norm]
-            return cilindrada, categoria
-        
-        # Busca por correspondência parcial - ordena por comprimento (mais específico primeiro)
-        matches = []
-        for modelo_mapeado, (cilindrada, categoria) in MAPEAMENTO_MOTOS.items():
-            modelo_mapeado_norm = normalizar_texto(modelo_mapeado)
-            
-            # Verifica se o modelo mapeado está contido no texto
-            if modelo_mapeado_norm in texto_norm:
-                matches.append((modelo_mapeado_norm, cilindrada, categoria, len(modelo_mapeado_norm)))
-            
-            # Verifica também variações sem espaço (ybr150 vs ybr 150)
-            modelo_sem_espaco = modelo_mapeado_norm.replace(' ', '')
-            if modelo_sem_espaco in texto_norm:
-                matches.append((modelo_sem_espaco, cilindrada, categoria, len(modelo_sem_espaco)))
-        
-        # Se encontrou correspondências, retorna a mais específica (maior comprimento)
-        if matches:
-            # Ordena por comprimento decrescente para pegar a correspondência mais específica
-            matches.sort(key=lambda x: x[3], reverse=True)
-            _, cilindrada, categoria, _ = matches[0]
-            return cilindrada, categoria
-        
-        return None, None
-    
-    # Busca primeiro no modelo
-    cilindrada, categoria = buscar_no_texto(modelo)
-    
-    # Se não encontrou e tem versão, busca na versão
-    if not cilindrada and versao:
-        cilindrada, categoria = buscar_no_texto(versao)
-    
-    return cilindrada, categoria
+   """
+   Infere cilindrada e categoria para motocicletas baseado no modelo e versão.
+   Busca primeiro no modelo, depois na versão se não encontrar.
+   Retorna uma tupla (cilindrada, categoria).
+   """
+   def buscar_no_texto(texto: str) -> Tuple[Optional[int], Optional[str]]:
+       if not texto: 
+           return None, None
+       
+       texto_norm = normalizar_texto(texto)
+       
+       # Busca exata primeiro
+       if texto_norm in MAPEAMENTO_MOTOS:
+           cilindrada, categoria = MAPEAMENTO_MOTOS[texto_norm]
+           return cilindrada, categoria
+       
+       # Busca por correspondência parcial - ordena por comprimento (mais específico primeiro)
+       matches = []
+       for modelo_mapeado, (cilindrada, categoria) in MAPEAMENTO_MOTOS.items():
+           modelo_mapeado_norm = normalizar_texto(modelo_mapeado)
+           
+           # Verifica se o modelo mapeado está contido no texto
+           if modelo_mapeado_norm in texto_norm:
+               matches.append((modelo_mapeado_norm, cilindrada, categoria, len(modelo_mapeado_norm)))
+           
+           # Verifica também variações sem espaço (ybr150 vs ybr 150)
+           modelo_sem_espaco = modelo_mapeado_norm.replace(' ', '')
+           if modelo_sem_espaco in texto_norm:
+               matches.append((modelo_sem_espaco, cilindrada, categoria, len(modelo_sem_espaco)))
+       
+       # Se encontrou correspondências, retorna a mais específica (maior comprimento)
+       if matches:
+           # Ordena por comprimento decrescente para pegar a correspondência mais específica
+           matches.sort(key=lambda x: x[3], reverse=True)
+           _, cilindrada, categoria, _ = matches[0]
+           return cilindrada, categoria
+       
+       return None, None
+   
+   # Busca primeiro no modelo
+   cilindrada, categoria = buscar_no_texto(modelo)
+   
+   # Se não encontrou e tem versão, busca na versão
+   if not cilindrada and versao:
+       cilindrada, categoria = buscar_no_texto(versao)
+   
+   # TERCEIRA TENTATIVA: modelo + versao como frase completa
+   if not cilindrada and versao:
+       cilindrada, categoria = buscar_no_texto(f"{modelo} {versao}")
+   
+   return cilindrada, categoria
 
 def inferir_cilindrada(modelo: str, versao: str = "") -> Optional[int]:
     """Função legada para compatibilidade - retorna apenas cilindrada"""
