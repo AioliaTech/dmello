@@ -183,6 +183,7 @@ MAPEAMENTO_MOTOS = {
     "lander250": (250, "trail"),  # Variação sem espaço
     
     # BigTrail/Adventure (alta cilindrada, touring)
+    "cb 500x": (500, "bigtrail"),   
     "DL 650 ": (650, "bigtrail"),
     "DL 650 XT": (650, "bigtrail"),
     "R 1200 GS": (1200, "bigtrail"),
