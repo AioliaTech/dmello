@@ -903,7 +903,7 @@ class ClickGarageParser(BaseParser):
             motor_info = self._extract_motor_info(modelo_completo)
             
             parsed = self.normalize_vehicle({
-                "id": v.get("id"),
+                "id": v.get("placa")[::-1] if v.get("placa") else v.get("id"),
                 "tipo": tipo_final,
                 "titulo": v.get("titulo"),
                 "versao": self._clean_version(modelo_completo),
