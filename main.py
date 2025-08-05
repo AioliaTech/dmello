@@ -33,7 +33,7 @@ FALLBACK_PRIORITY = [
 # Mapeamento de categorias por modelo - Versão atualizada e melhorada
 MAPEAMENTO_CATEGORIAS = {}
 
-# Mapeamento combinado: cilindrada e categoria para motos (deixando vazio conforme solicitado)
+# Mapeamento combinado: cilindrada e categoria para motos (você vai colar depois)
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     "cg 150 titan": (150, "street"),
@@ -394,6 +394,24 @@ class VehicleSearchEngine:
         
         return None
     
+    def exact_match(self, query_words: List[str], field_content: str) -> Tuple[bool, str]:
+        """Busca exata: todas as palavras devem estar presentes (substring)"""
+        if not query_words or not field_content:
+            return False, "empty_input"
+            
+        normalized_content = self.normalize_text(field_content)
+        
+        for word in query_words:
+            normalized_word = self.normalize_text(word)
+            if len(normalized_word) < 2:
+                continue
+                
+            # Deve estar presente como substring
+            if normalized_word not in normalized_content:
+                return False, f"exact_miss: '{normalized_word}' não encontrado"
+        
+        return True, f"exact_match: todas as palavras encontradas"
+    
     def _fuzzy_match_all_words(self, query_words: List[str], field_content: str, fuzzy_threshold: int) -> Tuple[bool, str]:
         """Para motos: TODAS as palavras da query devem ter match"""
         normalized_content = self.normalize_text(field_content)
@@ -505,8 +523,24 @@ class VehicleSearchEngine:
         else:
             return self._fuzzy_match_any_word(query_words, field_content, fuzzy_threshold)
     
+    def model_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
+        """Busca em três níveis: Exato → Fuzzy → Falha"""
+        
+        # NÍVEL 1: Busca exata
+        exact_result, exact_reason = self.exact_match(query_words, field_content)
+        if exact_result:
+            return True, f"EXACT: {exact_reason}"
+        
+        # NÍVEL 2: Busca fuzzy
+        fuzzy_result, fuzzy_reason = self.fuzzy_match(query_words, field_content, vehicle_type)
+        if fuzzy_result:
+            return True, f"FUZZY: {fuzzy_reason}"
+        
+        # NÍVEL 3: Falha (vai para fallback)
+        return False, f"NO_MATCH: exact({exact_reason}) + fuzzy({fuzzy_reason})"
+    
     def model_exists_in_database(self, vehicles: List[Dict], model_query: str) -> bool:
-        """Verifica se um modelo existe no banco de dados usando fuzzy matching"""
+        """Verifica se um modelo existe no banco usando busca em três níveis"""
         if not model_query:
             return False
             
@@ -515,11 +549,11 @@ class VehicleSearchEngine:
         for vehicle in vehicles:
             vehicle_type = vehicle.get("tipo", "")
             
-            # Verifica nos campos de modelo, titulo e versao (onde modelo é buscado)
+            # Verifica nos campos de modelo, titulo e versao
             for field in ["modelo", "titulo", "versao"]:
                 field_value = str(vehicle.get(field, ""))
                 if field_value:
-                    is_match, _ = self.fuzzy_match(query_words, field_value, vehicle_type)
+                    is_match, _ = self.model_match(query_words, field_value, vehicle_type)
                     if is_match:
                         return True
         return False
@@ -542,7 +576,7 @@ class VehicleSearchEngine:
                 continue
             
             if filter_key == "modelo":
-                # Filtro de modelo: busca em 'modelo', 'titulo' e 'versao' com fuzzy
+                # Filtro de modelo: busca em três níveis (exato → fuzzy → falha)
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -550,13 +584,13 @@ class VehicleSearchEngine:
                 
                 filtered_vehicles = [
                     v for v in filtered_vehicles
-                    if (self.fuzzy_match(all_words, str(v.get("modelo", "")), v.get("tipo", ""))[0] or 
-                        self.fuzzy_match(all_words, str(v.get("titulo", "")), v.get("tipo", ""))[0] or
-                        self.fuzzy_match(all_words, str(v.get("versao", "")), v.get("tipo", ""))[0])
+                    if (self.model_match(all_words, str(v.get("modelo", "")), v.get("tipo", ""))[0] or 
+                        self.model_match(all_words, str(v.get("titulo", "")), v.get("tipo", ""))[0] or
+                        self.model_match(all_words, str(v.get("versao", "")), v.get("tipo", ""))[0])
                 ]
                 
             elif filter_key == "cor":
-                # Filtro de cor: busca apenas no campo 'cor' com fuzzy
+                # Outros filtros continuam usando apenas fuzzy
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -568,7 +602,6 @@ class VehicleSearchEngine:
                 ]
                 
             elif filter_key == "categoria":
-                # Filtro de categoria: busca apenas no campo 'categoria' com fuzzy
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -580,7 +613,6 @@ class VehicleSearchEngine:
                 ]
                 
             elif filter_key == "opcionais":
-                # Filtro de opcionais: busca apenas no campo 'opcionais' com fuzzy
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -592,7 +624,6 @@ class VehicleSearchEngine:
                 ]
                 
             elif filter_key == "combustivel":
-                # Filtro de combustível: busca apenas no campo 'combustivel' com fuzzy
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -604,7 +635,6 @@ class VehicleSearchEngine:
                 ]
                 
             elif filter_key in self.exact_fields:
-                # Filtros exatos (tipo, marca, cambio, motor, portas)
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
@@ -708,9 +738,9 @@ class VehicleSearchEngine:
     def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
                             valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
                             ccmax: Optional[str], excluded_ids: set) -> SearchResult:
-        """Executa busca com fallback progressivo"""
+        """Executa busca com fallback progressivo seguindo FALLBACK_PRIORITY"""
         
-        # Primeira tentativa: busca normal
+        # Primeira tentativa: busca normal (já inclui exato → fuzzy para modelo)
         filtered_vehicles = self.apply_filters(vehicles, filters)
         filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
         
@@ -724,7 +754,7 @@ class VehicleSearchEngine:
             sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
             
             return SearchResult(
-                vehicles=sorted_vehicles[:6],  # Limita a 6 resultados
+                vehicles=sorted_vehicles[:6],
                 total_found=len(sorted_vehicles),
                 fallback_info={},
                 removed_filters=[]
@@ -739,7 +769,7 @@ class VehicleSearchEngine:
                 removed_filters=[]
             )
         
-        # VERIFICAÇÃO PRÉVIA: Se tem 'modelo', verifica se ele existe no banco
+        # Fallback normal: segue a ordem FALLBACK_PRIORITY
         current_filters = dict(filters)
         removed_filters = []
         current_valormax = valormax
@@ -747,51 +777,6 @@ class VehicleSearchEngine:
         current_kmmax = kmmax
         current_ccmax = ccmax
         
-        if "modelo" in current_filters:
-            model_value = current_filters["modelo"]
-            model_exists = self.model_exists_in_database(vehicles, model_value)
-            
-            if not model_exists:
-                # Se não tem categoria, tenta mapear modelo→categoria
-                if "categoria" not in current_filters:
-                    mapped_category = self.find_category_by_model(model_value)
-                    if mapped_category:
-                        current_filters["categoria"] = mapped_category
-                        removed_filters.append(f"modelo({model_value})->categoria({mapped_category})")
-                    else:
-                        removed_filters.append(f"modelo({model_value})")
-                else:
-                    # Se já tem categoria, só remove o modelo
-                    removed_filters.append(f"modelo({model_value})")
-                
-                # Remove o modelo dos filtros
-                current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
-                
-                # Tenta busca sem o modelo inexistente
-                if current_filters:  # Se ainda sobrou algum filtro
-                    filtered_vehicles = self.apply_filters(vehicles, current_filters)
-                    filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                    
-                    if excluded_ids:
-                        filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
-                    
-                    if filtered_vehicles:
-                        sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                        fallback_info = {
-                            "fallback": {
-                                "removed_filters": removed_filters,
-                                "reason": "model_not_found_in_database"
-                            }
-                        }
-                        
-                        return SearchResult(
-                            vehicles=sorted_vehicles[:6],
-                            total_found=len(sorted_vehicles),
-                            fallback_info=fallback_info,
-                            removed_filters=removed_filters
-                        )
-        
-        # Fallback normal: tentar removendo parâmetros progressivamente conforme nova ordem
         for filter_to_remove in FALLBACK_PRIORITY:
             if filter_to_remove == "KmMax" and current_kmmax:
                 # Verifica se existem veículos que atendem ao KmMax antes de remover
@@ -802,16 +787,13 @@ class VehicleSearchEngine:
                     self.convert_km(v.get("km")) <= int(current_kmmax)
                 ]
                 
-                # Só remove KmMax se realmente não há veículos dentro do limite
                 if not vehicles_within_km_limit:
                     current_kmmax = None
                     removed_filters.append("KmMax")
                 else:
-                    # Pula a remoção do KmMax pois há veículos dentro do limite
                     continue
                     
             elif filter_to_remove == "AnoMax" and current_anomax:
-                # Verifica se existem veículos que atendem ao AnoMax antes de remover
                 test_vehicles = self.apply_filters(vehicles, current_filters)
                 vehicles_within_year_limit = [
                     v for v in test_vehicles
@@ -819,17 +801,46 @@ class VehicleSearchEngine:
                     self.convert_year(v.get("ano")) <= int(current_anomax)
                 ]
                 
-                # Só remove AnoMax se realmente não há veículos dentro do limite
                 if not vehicles_within_year_limit:
                     current_anomax = None
                     removed_filters.append("AnoMax")
                 else:
-                    # Pula a remoção do AnoMax pois há veículos dentro do limite
                     continue
+                    
             elif filter_to_remove in current_filters:
                 # REGRA: Não faz fallback se sobrar apenas 1 filtro
                 remaining_filters = [k for k, v in current_filters.items() if v]
                 if len(remaining_filters) <= 1:
+                    # CASO ESPECIAL: Se sobrou só "modelo", tenta converter para categoria
+                    if remaining_filters == ["modelo"]:
+                        model_value = current_filters["modelo"]
+                        mapped_category = self.find_category_by_model(model_value)
+                        if mapped_category:
+                            current_filters = {"categoria": mapped_category}
+                            removed_filters.append(f"modelo({model_value})->categoria({mapped_category})")
+                            
+                            # Tenta busca com categoria mapeada
+                            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+                            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                            
+                            if excluded_ids:
+                                filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
+                            
+                            if filtered_vehicles:
+                                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                                fallback_info = {
+                                    "fallback": {
+                                        "removed_filters": removed_filters,
+                                        "reason": "modelo_to_categoria_fallback"
+                                    }
+                                }
+                                
+                                return SearchResult(
+                                    vehicles=sorted_vehicles[:6],
+                                    total_found=len(sorted_vehicles),
+                                    fallback_info=fallback_info,
+                                    removed_filters=removed_filters
+                                )
                     break
                 
                 # Remove o filtro atual
