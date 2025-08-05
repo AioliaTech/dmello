@@ -402,7 +402,7 @@ class VehicleSearchEngine:
         normalized_content = self.normalize_text(field_content)
         
         # Define o threshold baseado no tipo do veículo
-        fuzzy_threshold = 95 if vehicle_type == "moto" else 87
+        fuzzy_threshold = 98 if vehicle_type == "moto" else 87
         
         for word in query_words:
             normalized_word = self.normalize_text(word)
