@@ -394,30 +394,7 @@ class VehicleSearchEngine:
         
         return None
     
-    def model_exists_in_database(self, vehicles: List[Dict], model_query: str) -> bool:
-        """Verifica se um modelo existe no banco de dados usando fuzzy matching"""
-        if not model_query:
-            return False
-            
-        query_words = model_query.split()
-        
-        for vehicle in vehicles:
-            # Verifica nos campos de modelo, titulo e versao (onde modelo é buscado)
-            for field in ["modelo", "titulo", "versao"]:
-                field_value = str(vehicle.get(field, ""))
-                if field_value:
-                    is_match, _ = self.fuzzy_match(query_words, field_value)
-                    if is_match:
-                        return True
-        return False
-    
-    def split_multi_value(self, value: str) -> List[str]:
-        """Divide valores múltiplos separados por vírgula"""
-        if not value:
-            return []
-        return [v.strip() for v in str(value).split(',') if v.strip()]
-    
-def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
+    def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
         """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
         if not query_words or not field_content:
             return False, "empty_input"
@@ -477,6 +454,12 @@ def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: 
                     if is_match:
                         return True
         return False
+    
+    def split_multi_value(self, value: str) -> List[str]:
+        """Divide valores múltiplos separados por vírgula"""
+        if not value:
+            return []
+        return [v.strip() for v in str(value).split(',') if v.strip()]
     
     def apply_filters(self, vehicles: List[Dict], filters: Dict[str, str]) -> List[Dict]:
         """Aplica filtros aos veículos"""
