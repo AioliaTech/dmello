@@ -417,152 +417,152 @@ class VehicleSearchEngine:
             return []
         return [v.strip() for v in str(value).split(',') if v.strip()]
     
-    def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
-    """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
-    if not query_words or not field_content:
-        return False, "empty_input"
-        
-    normalized_content = self.normalize_text(field_content)
-    
-    # Define o threshold baseado no tipo do veículo
-    fuzzy_threshold = 95 if vehicle_type == "moto" else 87
-    
-    for word in query_words:
-        normalized_word = self.normalize_text(word)
-        if len(normalized_word) < 2:
-            continue
+def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
+        """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
+        if not query_words or not field_content:
+            return False, "empty_input"
             
-        # Match exato (substring)
-        if normalized_word in normalized_content:
-            return True, f"exact_match: {normalized_word}"
+        normalized_content = self.normalize_text(field_content)
         
-        # Match no início da palavra (para casos como "ram" em "rampage")
-        content_words = normalized_content.split()
-        for content_word in content_words:
-            if content_word.startswith(normalized_word):
-                return True, f"starts_with_match: {normalized_word}"
+        # Define o threshold baseado no tipo do veículo
+        fuzzy_threshold = 95 if vehicle_type == "moto" else 87
+        
+        for word in query_words:
+            normalized_word = self.normalize_text(word)
+            if len(normalized_word) < 2:
+                continue
                 
-        # Match fuzzy para palavras com 3+ caracteres
-        if len(normalized_word) >= 3:
-            # Verifica se a palavra da query está contida em alguma palavra do conteúdo
+            # Match exato (substring)
+            if normalized_word in normalized_content:
+                return True, f"exact_match: {normalized_word}"
+            
+            # Match no início da palavra (para casos como "ram" em "rampage")
+            content_words = normalized_content.split()
             for content_word in content_words:
-                if normalized_word in content_word:
-                    return True, f"substring_match: {normalized_word} in {content_word}"
-            
-            # Fuzzy matching tradicional com threshold ajustado
-            partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
-            ratio_score = fuzz.ratio(normalized_content, normalized_word)
-            max_score = max(partial_score, ratio_score)
-            
-            if max_score >= fuzzy_threshold:
-                return True, f"fuzzy_match: {max_score} (threshold: {fuzzy_threshold})"
+                if content_word.startswith(normalized_word):
+                    return True, f"starts_with_match: {normalized_word}"
+                    
+            # Match fuzzy para palavras com 3+ caracteres
+            if len(normalized_word) >= 3:
+                # Verifica se a palavra da query está contida em alguma palavra do conteúdo
+                for content_word in content_words:
+                    if normalized_word in content_word:
+                        return True, f"substring_match: {normalized_word} in {content_word}"
+                
+                # Fuzzy matching tradicional com threshold ajustado
+                partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
+                ratio_score = fuzz.ratio(normalized_content, normalized_word)
+                max_score = max(partial_score, ratio_score)
+                
+                if max_score >= fuzzy_threshold:
+                    return True, f"fuzzy_match: {max_score} (threshold: {fuzzy_threshold})"
+        
+        return False, "no_match"
     
-    return False, "no_match"
-
-def model_exists_in_database(self, vehicles: List[Dict], model_query: str) -> bool:
-    """Verifica se um modelo existe no banco de dados usando fuzzy matching"""
-    if not model_query:
+    def model_exists_in_database(self, vehicles: List[Dict], model_query: str) -> bool:
+        """Verifica se um modelo existe no banco de dados usando fuzzy matching"""
+        if not model_query:
+            return False
+            
+        query_words = model_query.split()
+        
+        for vehicle in vehicles:
+            vehicle_type = vehicle.get("tipo", "")
+            
+            # Verifica nos campos de modelo, titulo e versao (onde modelo é buscado)
+            for field in ["modelo", "titulo", "versao"]:
+                field_value = str(vehicle.get(field, ""))
+                if field_value:
+                    is_match, _ = self.fuzzy_match(query_words, field_value, vehicle_type)
+                    if is_match:
+                        return True
         return False
-        
-    query_words = model_query.split()
     
-    for vehicle in vehicles:
-        vehicle_type = vehicle.get("tipo", "")
+    def apply_filters(self, vehicles: List[Dict], filters: Dict[str, str]) -> List[Dict]:
+        """Aplica filtros aos veículos"""
+        if not filters:
+            return vehicles
+            
+        filtered_vehicles = list(vehicles)
         
-        # Verifica nos campos de modelo, titulo e versao (onde modelo é buscado)
-        for field in ["modelo", "titulo", "versao"]:
-            field_value = str(vehicle.get(field, ""))
-            if field_value:
-                is_match, _ = self.fuzzy_match(query_words, field_value, vehicle_type)
-                if is_match:
-                    return True
-    return False
-
-def apply_filters(self, vehicles: List[Dict], filters: Dict[str, str]) -> List[Dict]:
-    """Aplica filtros aos veículos"""
-    if not filters:
-        return vehicles
+        for filter_key, filter_value in filters.items():
+            if not filter_value or not filtered_vehicles:
+                continue
+            
+            if filter_key == "modelo":
+                # Filtro de modelo: busca em 'modelo', 'titulo' e 'versao' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if (self.fuzzy_match(all_words, str(v.get("modelo", "")), v.get("tipo", ""))[0] or 
+                        self.fuzzy_match(all_words, str(v.get("titulo", "")), v.get("tipo", ""))[0] or
+                        self.fuzzy_match(all_words, str(v.get("versao", "")), v.get("tipo", ""))[0])
+                ]
+                
+            elif filter_key == "cor":
+                # Filtro de cor: busca apenas no campo 'cor' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("cor", "")), v.get("tipo", ""))[0]
+                ]
+                
+            elif filter_key == "categoria":
+                # Filtro de categoria: busca apenas no campo 'categoria' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("categoria", "")), v.get("tipo", ""))[0]
+                ]
+                
+            elif filter_key == "opcionais":
+                # Filtro de opcionais: busca apenas no campo 'opcionais' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("opcionais", "")), v.get("tipo", ""))[0]
+                ]
+                
+            elif filter_key == "combustivel":
+                # Filtro de combustível: busca apenas no campo 'combustivel' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("combustivel", "")), v.get("tipo", ""))[0]
+                ]
+                
+            elif filter_key in self.exact_fields:
+                # Filtros exatos (tipo, marca, cambio, motor, portas)
+                normalized_values = [
+                    self.normalize_text(v) for v in self.split_multi_value(filter_value)
+                ]
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.normalize_text(str(v.get(filter_key, ""))) in normalized_values
+                ]
         
-    filtered_vehicles = list(vehicles)
-    
-    for filter_key, filter_value in filters.items():
-        if not filter_value or not filtered_vehicles:
-            continue
-        
-        if filter_key == "modelo":
-            # Filtro de modelo: busca em 'modelo', 'titulo' e 'versao' com fuzzy
-            multi_values = self.split_multi_value(filter_value)
-            all_words = []
-            for val in multi_values:
-                all_words.extend(val.split())
-            
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if (self.fuzzy_match(all_words, str(v.get("modelo", "")), v.get("tipo", ""))[0] or 
-                    self.fuzzy_match(all_words, str(v.get("titulo", "")), v.get("tipo", ""))[0] or
-                    self.fuzzy_match(all_words, str(v.get("versao", "")), v.get("tipo", ""))[0])
-            ]
-            
-        elif filter_key == "cor":
-            # Filtro de cor: busca apenas no campo 'cor' com fuzzy
-            multi_values = self.split_multi_value(filter_value)
-            all_words = []
-            for val in multi_values:
-                all_words.extend(val.split())
-            
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if self.fuzzy_match(all_words, str(v.get("cor", "")), v.get("tipo", ""))[0]
-            ]
-            
-        elif filter_key == "categoria":
-            # Filtro de categoria: busca apenas no campo 'categoria' com fuzzy
-            multi_values = self.split_multi_value(filter_value)
-            all_words = []
-            for val in multi_values:
-                all_words.extend(val.split())
-            
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if self.fuzzy_match(all_words, str(v.get("categoria", "")), v.get("tipo", ""))[0]
-            ]
-            
-        elif filter_key == "opcionais":
-            # Filtro de opcionais: busca apenas no campo 'opcionais' com fuzzy
-            multi_values = self.split_multi_value(filter_value)
-            all_words = []
-            for val in multi_values:
-                all_words.extend(val.split())
-            
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if self.fuzzy_match(all_words, str(v.get("opcionais", "")), v.get("tipo", ""))[0]
-            ]
-            
-        elif filter_key == "combustivel":
-            # Filtro de combustível: busca apenas no campo 'combustivel' com fuzzy
-            multi_values = self.split_multi_value(filter_value)
-            all_words = []
-            for val in multi_values:
-                all_words.extend(val.split())
-            
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if self.fuzzy_match(all_words, str(v.get("combustivel", "")), v.get("tipo", ""))[0]
-            ]
-            
-        elif filter_key in self.exact_fields:
-            # Filtros exatos (tipo, marca, cambio, motor, portas)
-            normalized_values = [
-                self.normalize_text(v) for v in self.split_multi_value(filter_value)
-            ]
-            
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if self.normalize_text(str(v.get(filter_key, ""))) in normalized_values
-            ]
-    
-    return filtered_vehicles
+        return filtered_vehicles
     
     def apply_range_filters(self, vehicles: List[Dict], valormax: Optional[str], 
                           anomax: Optional[str], kmmax: Optional[str], ccmax: Optional[str]) -> List[Dict]:
