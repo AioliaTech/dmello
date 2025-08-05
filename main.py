@@ -179,6 +179,8 @@ MAPEAMENTO_MOTOS = {
     "trident 660": (660, "esportiva naked"),
 
     # Custom/Cruiser (posição relaxada, estética clássica)
+    "BOULEVARD M1500": (1500, "custom"),
+    "HERITAGE SOFTAIL": (1450, "custom"),
     "iron 883": (883, "custom"),
     "forty eight": (1200, "custom"),
     "sportster s": (1250, "custom"),
