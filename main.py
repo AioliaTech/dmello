@@ -394,15 +394,69 @@ class VehicleSearchEngine:
         
         return None
     
-    def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
-        """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
-        if not query_words or not field_content:
-            return False, "empty_input"
-            
+    def _fuzzy_match_all_words(self, query_words: List[str], field_content: str, fuzzy_threshold: int) -> Tuple[bool, str]:
+        """Para motos: TODAS as palavras da query devem ter match"""
         normalized_content = self.normalize_text(field_content)
+        matched_words = []
+        match_details = []
         
-        # Define o threshold baseado no tipo do veículo
-        fuzzy_threshold = 98 if vehicle_type == "moto" else 87
+        for word in query_words:
+            normalized_word = self.normalize_text(word)
+            if len(normalized_word) < 2:
+                continue
+                
+            word_matched = False
+            
+            # Match exato (substring)
+            if normalized_word in normalized_content:
+                matched_words.append(normalized_word)
+                match_details.append(f"exact:{normalized_word}")
+                word_matched = True
+            
+            # Match no início da palavra
+            elif not word_matched:
+                content_words = normalized_content.split()
+                for content_word in content_words:
+                    if content_word.startswith(normalized_word):
+                        matched_words.append(normalized_word)
+                        match_details.append(f"starts_with:{normalized_word}")
+                        word_matched = True
+                        break
+            
+            # Substring match
+            elif not word_matched and len(normalized_word) >= 3:
+                content_words = normalized_content.split()
+                for content_word in content_words:
+                    if normalized_word in content_word:
+                        matched_words.append(normalized_word)
+                        match_details.append(f"substring:{normalized_word}>{content_word}")
+                        word_matched = True
+                        break
+            
+            # Fuzzy match como último recurso
+            elif not word_matched and len(normalized_word) >= 3:
+                partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
+                ratio_score = fuzz.ratio(normalized_content, normalized_word)
+                max_score = max(partial_score, ratio_score)
+                
+                if max_score >= fuzzy_threshold:
+                    matched_words.append(normalized_word)
+                    match_details.append(f"fuzzy:{normalized_word}({max_score})")
+                    word_matched = True
+            
+            # Se alguma palavra não teve match, falha para motos
+            if not word_matched:
+                return False, f"moto_strict: palavra '{normalized_word}' não encontrada"
+        
+        # Todas as palavras tiveram match
+        if len(matched_words) >= len([w for w in query_words if len(self.normalize_text(w)) >= 2]):
+            return True, f"moto_all_match: {', '.join(match_details)}"
+        
+        return False, "moto_strict: nem todas as palavras encontradas"
+    
+    def _fuzzy_match_any_word(self, query_words: List[str], field_content: str, fuzzy_threshold: int) -> Tuple[bool, str]:
+        """Para carros: mantém a lógica original (qualquer palavra basta)"""
+        normalized_content = self.normalize_text(field_content)
         
         for word in query_words:
             normalized_word = self.normalize_text(word)
@@ -413,7 +467,7 @@ class VehicleSearchEngine:
             if normalized_word in normalized_content:
                 return True, f"exact_match: {normalized_word}"
             
-            # Match no início da palavra (para casos como "ram" em "rampage")
+            # Match no início da palavra
             content_words = normalized_content.split()
             for content_word in content_words:
                 if content_word.startswith(normalized_word):
@@ -421,12 +475,12 @@ class VehicleSearchEngine:
                     
             # Match fuzzy para palavras com 3+ caracteres
             if len(normalized_word) >= 3:
-                # Verifica se a palavra da query está contida em alguma palavra do conteúdo
+                # Substring match
                 for content_word in content_words:
                     if normalized_word in content_word:
                         return True, f"substring_match: {normalized_word} in {content_word}"
                 
-                # Fuzzy matching tradicional com threshold ajustado
+                # Fuzzy matching tradicional
                 partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
                 ratio_score = fuzz.ratio(normalized_content, normalized_word)
                 max_score = max(partial_score, ratio_score)
@@ -435,6 +489,21 @@ class VehicleSearchEngine:
                     return True, f"fuzzy_match: {max_score} (threshold: {fuzzy_threshold})"
         
         return False, "no_match"
+    
+    def fuzzy_match(self, query_words: List[str], field_content: str, vehicle_type: str = None) -> Tuple[bool, str]:
+        """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
+        if not query_words or not field_content:
+            return False, "empty_input"
+        
+        # Define o threshold baseado no tipo do veículo
+        fuzzy_threshold = 98 if vehicle_type == "moto" else 87
+        
+        # Para motos: exige que TODAS as palavras façam match
+        # Para outros veículos: mantém a lógica original (qualquer palavra)
+        if vehicle_type == "moto":
+            return self._fuzzy_match_all_words(query_words, field_content, fuzzy_threshold)
+        else:
+            return self._fuzzy_match_any_word(query_words, field_content, fuzzy_threshold)
     
     def model_exists_in_database(self, vehicles: List[Dict], model_query: str) -> bool:
         """Verifica se um modelo existe no banco de dados usando fuzzy matching"""
