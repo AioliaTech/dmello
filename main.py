@@ -942,7 +942,10 @@ def wrapped_fetch_and_convert_xml():
 def schedule_tasks():
     """Agenda tarefas de atualização de dados"""
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    scheduler.add_job(wrapped_fetch_and_convert_xml, "cron", hour="0,12")
+    
+    # Executa a cada 2 horas
+    scheduler.add_job(wrapped_fetch_and_convert_xml, "interval", hours=2)
+    
     scheduler.start()
     wrapped_fetch_and_convert_xml()  # Executa uma vez na inicialização
 
