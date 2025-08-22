@@ -1046,32 +1046,14 @@ class ClickGarageParser(BaseParser):
 class SimplesVeiculoParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
         """
-        Identifica se os dados são do formato SimplesVeiculo
+        Identifica se os dados são do formato SimplesVeiculo baseado apenas na URL
         """
-        # Verifica se é uma estrutura XML do SimplesVeiculo
-        if not isinstance(data, dict):
-            return False
-        
-        # Verifica se contém a estrutura 'listings' -> 'listing'
-        if "listings" not in data:
-            return False
-        
-        listings = data.get("listings", {})
-        if "listing" not in listings:
-            return False
-        
-        # Verifica se é especificamente do SimplesVeiculo pela URL
-        if "simplesveiculo" in url.lower():
+        # Verificação simples: URL contém 'simplesveiculo.com.br'
+        if "simplesveiculo.com.br" in url.lower():
+            print(f"[DEBUG] SimplesVeiculoParser: URL SimplesVeiculo detectada: {url}")
             return True
         
-        # Verifica pela estrutura específica (campos únicos do SimplesVeiculo)
-        listing = listings["listing"]
-        if isinstance(listing, list) and listing:
-            listing = listing[0]
-        
-        # Campos característicos do SimplesVeiculo
-        simples_fields = ["vehicle_id", "state_of_vehicle", "dealer_name", "body_style"]
-        return isinstance(listing, dict) and any(field in listing for field in simples_fields)
+        return False
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         """
@@ -1254,6 +1236,7 @@ class SimplesVeiculoParser(BaseParser):
         """
         Extrai todas as fotos do veículo SimplesVeiculo
         Cada foto está em um elemento <image><url>...</url></image>
+        Quando há múltiplas tags image, o xmltodict cria uma lista
         """
         fotos = []
         
@@ -1263,26 +1246,28 @@ class SimplesVeiculoParser(BaseParser):
         if not image_data:
             return fotos
         
-        # Se é uma lista de imagens
+        # Se é uma lista de imagens (caso mais comum com múltiplas tags <image>)
         if isinstance(image_data, list):
             for img in image_data:
                 if isinstance(img, dict) and "url" in img:
-                    url = img["url"].strip()
-                    if url:
+                    url = str(img["url"]).strip()
+                    if url and url != "https://app.simplesveiculo.com.br/":  # Ignora URLs vazias/placeholder
                         fotos.append(url)
-                elif isinstance(img, str):
-                    fotos.append(img.strip())
+                elif isinstance(img, str) and img.strip():
+                    if img.strip() != "https://app.simplesveiculo.com.br/":
+                        fotos.append(img.strip())
         
         # Se é um objeto único de imagem
         elif isinstance(image_data, dict):
             if "url" in image_data:
-                url = image_data["url"].strip()
-                if url:
+                url = str(image_data["url"]).strip()
+                if url and url != "https://app.simplesveiculo.com.br/":
                     fotos.append(url)
         
         # Se é uma string única
-        elif isinstance(image_data, str):
-            fotos.append(image_data.strip())
+        elif isinstance(image_data, str) and image_data.strip():
+            if image_data.strip() != "https://app.simplesveiculo.com.br/":
+                fotos.append(image_data.strip())
         
         return fotos
     
