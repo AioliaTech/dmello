@@ -613,7 +613,8 @@ class BaseParser(ABC):
         }
 
 class AltimusParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, dict) and "veiculos" in data
+    def can_parse(self, data: Any, url: str) -> bool: 
+        return "altimus.com.br" in url.lower()
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         veiculos = data.get("veiculos", [])
@@ -659,7 +660,8 @@ class AltimusParser(BaseParser):
         return str(opcionais) if opcionais else ""
 
 class AutocertoParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, dict) and "estoque" in data and "veiculo" in data.get("estoque", {})
+    def can_parse(self, data: Any, url: str) -> bool: 
+        return "autocerto.com" in url.lower()
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         veiculos = data["estoque"]["veiculo"]
@@ -726,9 +728,7 @@ class AutoconfParser(BaseParser):
     }
     
     def can_parse(self, data: Any, url: str) -> bool:
-        base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
-        if not base_check: return False
-        return "autoconf" in url
+        return "autoconf" in url.lower()
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         ads = data["ADS"]["AD"]
@@ -792,9 +792,7 @@ class AutoconfParser(BaseParser):
 
 class RevendamaisParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
-       base_check = isinstance(data, dict) and "ADS" in data and "AD" in data.get("ADS", {})
-       if not base_check: return False
-       return "revendamais" in url
+        return "revendamais.com.br" in url.lower()
 
     def parse(self, data: Any, url: str) -> List[Dict]:
         ads = data["ADS"]["AD"]
@@ -843,31 +841,7 @@ class RevendamaisParser(BaseParser):
 
 class ClickGarageParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
-        """
-        Identifica se os dados são do formato ClickGarage
-        """
-        # Verifica se é uma estrutura XML do ClickGarage
-        base_check = isinstance(data, dict) and "estoque" in data
-        if not base_check:
-            return False
-        
-        # Verifica se contém veículos na estrutura esperada
-        estoque = data.get("estoque", {})
-        if "veiculo" not in estoque:
-            return False
-        
-        # Verifica se é especificamente do ClickGarage pela URL ou estrutura
-        if "clickgarage" in url.lower():
-            return True
-        
-        # Verifica pela estrutura específica (campos únicos do ClickGarage)
-        veiculo = estoque["veiculo"]
-        if isinstance(veiculo, list) and veiculo:
-            veiculo = veiculo[0]
-        
-        # Campos característicos do ClickGarage
-        clickgarage_fields = ["anofipe", "codigo_fipe", "imagem_principal", "destaque"]
-        return isinstance(veiculo, dict) and any(field in veiculo for field in clickgarage_fields)
+        return "clickgarage.com.br" in url.lower()
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         """
@@ -1045,15 +1019,7 @@ class ClickGarageParser(BaseParser):
 
 class SimplesVeiculoParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
-        """
-        Identifica se os dados são do formato SimplesVeiculo baseado apenas na URL
-        """
-        # Verificação simples: URL contém 'simplesveiculo.com.br'
-        if "simplesveiculo.com.br" in url.lower():
-            print(f"[DEBUG] SimplesVeiculoParser: URL SimplesVeiculo detectada: {url}")
-            return True
-        
-        return False
+        return "simplesveiculo.com.br" in url.lower()
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         """
@@ -1328,7 +1294,8 @@ class SimplesVeiculoParser(BaseParser):
             return None
 
 class BoomParser(BaseParser):
-    def can_parse(self, data: Any, url: str) -> bool: return isinstance(data, (dict, list))
+    def can_parse(self, data: Any, url: str) -> bool: 
+        return "boomsistemas.com.br" in url.lower()
     
     def parse(self, data: Any, url: str) -> List[Dict]:
         veiculos = []
@@ -1408,10 +1375,19 @@ class BoomParser(BaseParser):
 
 class UnifiedVehicleFetcher:
     def __init__(self):
-        self.parsers = [AltimusParser(), ClickGarageParser(), AutocertoParser(), RevendamaisParser(), AutoconfParser(), SimplesVeiculoParser(), BoomParser()]
-        print("[INFO] Sistema unificado iniciado - detecção automática ativada com suporte a motos")
+        self.parsers = [
+            AltimusParser(), 
+            ClickGarageParser(), 
+            AutocertoParser(), 
+            RevendamaisParser(), 
+            AutoconfParser(), 
+            SimplesVeiculoParser(), 
+            BoomParser()
+        ]
+        print("[INFO] Sistema unificado iniciado - seleção de parser baseada na URL")
     
-    def get_urls(self) -> List[str]: return list({val for var, val in os.environ.items() if var.startswith("XML_URL") and val})
+    def get_urls(self) -> List[str]: 
+        return list({val for var, val in os.environ.items() if var.startswith("XML_URL") and val})
     
     def detect_format(self, content: bytes, url: str) -> tuple[Any, str]:
         content_str = content.decode('utf-8', errors='ignore')
@@ -1420,6 +1396,28 @@ class UnifiedVehicleFetcher:
             try: return xmltodict.parse(content_str), "xml"
             except Exception: raise ValueError(f"Formato não reconhecido para URL: {url}")
     
+    def select_parser(self, data: Any, url: str) -> Optional['BaseParser']:
+        """
+        Seleciona o parser baseado na URL primeiro, depois na estrutura dos dados.
+        """
+        # Primeira prioridade: seleção baseada na URL
+        for parser in self.parsers:
+            if parser.can_parse(data, url):
+                print(f"[INFO] Parser selecionado por URL: {parser.__class__.__name__}")
+                return parser
+        
+        # Se nenhum parser foi encontrado baseado na URL, tenta fallback
+        print(f"[AVISO] Nenhum parser específico encontrado para URL: {url}")
+        print(f"[INFO] Tentando parser genérico BoomParser como fallback...")
+        
+        # Usa BoomParser como fallback se a estrutura for compatível
+        boom_parser = BoomParser()
+        if boom_parser.can_parse(data, url):
+            print(f"[INFO] Usando BoomParser como fallback")
+            return boom_parser
+        
+        return None
+    
     def process_url(self, url: str) -> List[Dict]:
         print(f"[INFO] Processando URL: {url}")
         try:
@@ -1427,14 +1425,20 @@ class UnifiedVehicleFetcher:
             response.raise_for_status()
             data, format_type = self.detect_format(response.content, url)
             print(f"[INFO] Formato detectado: {format_type}")
-            for parser in self.parsers:
-                if parser.can_parse(data, url):
-                    print(f"[INFO] Usando parser: {parser.__class__.__name__}")
-                    return parser.parse(data, url)
-            print(f"[AVISO] Nenhum parser adequado encontrado para URL: {url}")
+            
+            parser = self.select_parser(data, url)
+            if parser:
+                return parser.parse(data, url)
+            else:
+                print(f"[ERRO] Nenhum parser adequado encontrado para URL: {url}")
+                return []
+                
+        except requests.RequestException as e: 
+            print(f"[ERRO] Erro de requisição para URL {url}: {e}")
             return []
-        except requests.RequestException as e: print(f"[ERRO] Erro de requisição para URL {url}: {e}"); return []
-        except Exception as e: print(f"[ERRO] Erro crítico ao processar URL {url}: {e}"); return []
+        except Exception as e: 
+            print(f"[ERRO] Erro crítico ao processar URL {url}: {e}")
+            return []
     
     def fetch_all(self) -> Dict:
         urls = self.get_urls()
@@ -1474,7 +1478,8 @@ class UnifiedVehicleFetcher:
             "motos_por_categoria": {},
             "carros_por_categoria": {},
             "top_marcas": {},
-            "cilindradas_motos": {}
+            "cilindradas_motos": {},
+            "parsers_utilizados": {}
         }
         
         for vehicle in vehicles:
