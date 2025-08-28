@@ -882,23 +882,23 @@ class FronteiraParser(BaseParser):
         return parsed_vehicles
     
     def extract_photos(self, v: Dict) -> List[str]:
-    fotos = v.get("fotos", {})
-    if not fotos:
+        fotos = v.get("fotos", {})
+        if not fotos:
+            return []
+
+        images = fotos.get("foto")
+        if not images:
+            return []
+
+        # Se só uma foto (string)
+        if isinstance(images, str):
+            return [images]
+
+        # Se várias fotos (lista de strings)
+        if isinstance(images, list):
+            return [img for img in images if isinstance(img, str)]
+
         return []
-
-    images = fotos.get("foto")
-    if not images:
-        return []
-
-    # Se só uma foto (string)
-    if isinstance(images, str):
-        return [images]
-
-    # Se várias fotos (lista de strings)
-    if isinstance(images, list):
-        return [img for img in images if isinstance(img, str)]
-
-    return []
 
 class ClickGarageParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
