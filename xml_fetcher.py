@@ -839,6 +839,59 @@ class RevendamaisParser(BaseParser):
         
         return []
 
+class FronteiraParser(BaseParser):
+    def can_parse(self, data: Any, url: str) -> bool:
+        return "fronteiraveiculos.com" in url.lower()
+
+    def parse(self, data: Any, url: str) -> List[Dict]:
+        # Pega direto do nó <estoque><veiculo>
+        ads = data["estoque"]["veiculo"]
+
+        # Garante que seja lista
+        if isinstance(ads, dict):
+            ads = [ads]
+        
+        parsed_vehicles = []
+        for v in ads:
+            modelo_veiculo = v.get("modelo")
+            versao_veiculo = v.get("titulo")
+            opcionais_veiculo = v.get("opcionais") or ""
+            
+            # Determina se é moto ou carro
+            categoria_veiculo = v.get("CATEGORY", "").lower()
+            is_moto = categoria_veiculo == "motocicleta" or "moto" in categoria_veiculo
+            
+            if is_moto:
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
+                tipo_final = "moto"
+            else:
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+                cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_veiculo)
+                tipo_final = v.get("CATEGORY")
+
+            parsed = self.normalize_vehicle({
+                "id": v.get("id"), "tipo": tipo_final, "titulo": v.get("titulo"), "versao": versao_veiculo,
+                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("ano"),
+                "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
+                "combustivel": v.get("combustivel"), "cambio": v.get("cambio"), "motor": v.get("motor"),
+                "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
+                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("preco")),
+                "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
+            })
+            parsed_vehicles.append(parsed)
+        return parsed_vehicles
+    
+    def extract_photos(self, v: Dict) -> List[str]:
+        images = v.get("IMAGES", [])
+        if not images: return []
+        
+        if isinstance(images, list):
+            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
+        elif isinstance(images, dict) and images.get("IMAGE_URL"):
+            return [images["IMAGE_URL"]]
+        
+        return []
+
 class ClickGarageParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
         return "clickgarage.com.br" in url.lower()
@@ -1376,7 +1429,8 @@ class BoomParser(BaseParser):
 class UnifiedVehicleFetcher:
     def __init__(self):
         self.parsers = [
-            AltimusParser(), 
+            AltimusParser(),
+            FronteiraParser(),
             ClickGarageParser(), 
             AutocertoParser(), 
             RevendamaisParser(), 
