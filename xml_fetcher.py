@@ -872,7 +872,7 @@ class FronteiraParser(BaseParser):
             parsed = self.normalize_vehicle({
                 "id": v.get("id"), "tipo": tipo_final, "titulo": v.get("titulo"), "versao": versao_veiculo,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("ano"),
-                "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("MILEAGE"), "cor": v.get("COLOR"),
+                "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("km"), "cor": v.get("cor"),
                 "combustivel": v.get("combustivel"), "cambio": v.get("cambio"), "motor": v.get("motor"),
                 "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
                 "cilindrada": cilindrada_final, "preco": converter_preco(v.get("preco")),
@@ -882,12 +882,12 @@ class FronteiraParser(BaseParser):
         return parsed_vehicles
     
     def extract_photos(self, v: Dict) -> List[str]:
-        images = v.get("IMAGES", [])
+        images = v.get("fotos", [])
         if not images: return []
         
         if isinstance(images, list):
-            return [img.get("IMAGE_URL") for img in images if isinstance(img, dict) and img.get("IMAGE_URL")]
-        elif isinstance(images, dict) and images.get("IMAGE_URL"):
+            return [img.get("foto") for img in images if isinstance(img, dict) and img.get("fotos")]
+        elif isinstance(images, dict) and images.get("fotos"):
             return [images["IMAGE_URL"]]
         
         return []
