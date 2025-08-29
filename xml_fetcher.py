@@ -870,7 +870,7 @@ class FronteiraParser(BaseParser):
                 tipo_final = v.get("CATEGORY")
 
             parsed = self.normalize_vehicle({
-                "id": v.get("id"), "tipo": tipo_final, "titulo": v.get("titulo"), "versao": versao_veiculo,
+                "id": v.get("id"), "tipo": 'carro', "titulo": v.get("titulo"), "versao": versao_veiculo,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("ano"),
                 "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("km"), "cor": v.get("cor"),
                 "combustivel": v.get("combustivel"), "cambio": v.get("cambio"), "motor": v.get("motor"),
