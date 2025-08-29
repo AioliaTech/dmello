@@ -1505,7 +1505,7 @@ class UnifiedVehicleFetcher:
             RevendamaisParser(), 
             AutoconfParser(), 
             SimplesVeiculoParser(),
-            RevendaproVeiculoParser(),
+            RevendaproParser(),
             BoomParser()
         ]
         print("[INFO] Sistema unificado iniciado - seleção de parser baseada na URL")
