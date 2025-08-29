@@ -943,7 +943,7 @@ class RevendaproParser(BaseParser):
         return parsed_vehicles
     
     def extract_photos(self, v: Dict) -> List[str]:
-        fotos = v.get("Fotos", {})
+        fotos = v.get("Fotos", "")
         if not fotos:
             return []
 
