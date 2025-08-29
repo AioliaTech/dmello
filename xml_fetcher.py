@@ -914,9 +914,9 @@ class RevendaproParser(BaseParser):
         
         parsed_vehicles = []
         for v in ads:
-            modelo_veiculo = v.get("modelo")
-            versao_veiculo = v.get("titulo")
-            opcionais_veiculo = v.get("opcionais") or ""
+            modelo_veiculo = v.get("ModeloVersao")
+            versao_veiculo = v.get("ModeloVersao")
+            opcionais_veiculo = v.get("Equipamentos") or ""
             
             # Determina se é moto ou carro
             categoria_veiculo = v.get("CATEGORY", "").lower()
@@ -931,19 +931,19 @@ class RevendaproParser(BaseParser):
                 tipo_final = v.get("CATEGORY")
 
             parsed = self.normalize_vehicle({
-                "id": v.get("id"), "tipo": 'carro', "titulo": v.get("titulo"), "versao": versao_veiculo,
+                "id": v.get("Codigo"), "tipo": v.get("Tipo"), "titulo": v.get("ModeloVersao"), "versao": versao_veiculo,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("ano"),
-                "ano_fabricacao": v.get("FABRIC_YEAR"), "km": v.get("km"), "cor": v.get("cor"),
-                "combustivel": v.get("combustivel"), "cambio": v.get("cambio"), "motor": v.get("motor"),
-                "portas": v.get("DOORS"), "categoria": categoria_final or v.get("BODY_TYPE"),
-                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("preco")),
+                "ano_fabricacao": v.get("AnoFabr"), "km": v.get("km"), "cor": v.get("Cor"),
+                "combustivel": v.get("Combustivel"), "cambio": v.get("Cambio"), "Motor": v.get("ModeloVersao"),
+                "portas": v.get("Portas"), "categoria": categoria_final or v.get("BODY_TYPE"),
+                "cilindrada": cilindrada_final, "preco": converter_preco(v.get("Preco")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
             })
             parsed_vehicles.append(parsed)
         return parsed_vehicles
     
     def extract_photos(self, v: Dict) -> List[str]:
-        fotos = v.get("fotos", {})
+        fotos = v.get("Fotos", {})
         if not fotos:
             return []
 
