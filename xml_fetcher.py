@@ -942,10 +942,27 @@ class RevendaproParser(BaseParser):
             parsed_vehicles.append(parsed)
         return parsed_vehicles
     
-    def extract_photos(self, v: Dict) -> List[str]:
+    def extract_photos(self, v: Dict[str, Any]) -> List[str]:
         fotos = v.get("Fotos")
         if not fotos:
             return []
+
+        # Caso 1: Fotos vem como dict {"foto": "..."} ou {"foto": ["...", "..."]}
+        if isinstance(fotos, dict):
+            images = fotos.get("foto")
+            if isinstance(images, str):
+                return [images]
+            if isinstance(images, list):
+                return [img for img in images if isinstance(img, str)]
+            return []
+
+        # Caso 2: Fotos vem como string única "<Fotos> url1 ; url2 ... </Fotos>"
+        if isinstance(fotos, str):
+            s = re.sub(r"</?\s*fotos?\s*>", "", fotos, flags=re.IGNORECASE).strip()
+            urls = [u.strip() for u in re.split(r"[;\n]+", s) if u.strip()]
+            return urls
+
+        return []
 
         images = fotos.get("foto")
         if not images:
