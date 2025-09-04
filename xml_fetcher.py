@@ -55,9 +55,6 @@ for model in minivan_models: MAPEAMENTO_CATEGORIAS[model] = "Minivan"
 offroad_models = ["bandeirante", "bronco", "defender", "grand vitara", "jimny", "samurai", "troller", "wrangler"]
 for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 
-# Normaliza todas as chaves do mapeamento de uma vez
-MAPEAMENTO_CATEGORIAS = { normalizar_texto(k): v for k, v in MAPEAMENTO_CATEGORIAS.items() }
-
 # =================== MAPEAMENTOS DE MOTOCICLETAS =======================
 
 # Mapeamento combinado: cilindrada e categoria
@@ -407,41 +404,44 @@ def normalizar_texto(texto: str) -> str:
     return texto_norm
 
 def definir_categoria_veiculo(modelo: str, opcionais: str = "") -> Optional[str]:
-    if not modelo:
-        return None
-
+    """
+    Define a categoria de um veículo usando busca EXATA no mapeamento.
+    Para modelos ambíguos ("hatch,sedan"), usa os opcionais para decidir.
+    """
+    if not modelo: return None
+    
+    # Normaliza o modelo do feed para uma busca exata
     modelo_norm = normalizar_texto(modelo)
-    opcionais_norm = normalizar_texto(opcionais)
-    opc_key = normalizar_texto(OPCIONAL_CHAVE_HATCH)
+    
+    # Busca pela chave exata no mapeamento
+    categoria_result = MAPEAMENTO_CATEGORIAS.get(modelo_norm)
+    
+    # Se encontrou uma correspondência exata
+    if categoria_result:
+        if categoria_result == "hatch,sedan":
+            opcionais_norm = normalizar_texto(opcionais)
+            opcional_chave_norm = normalizar_texto(OPCIONAL_CHAVE_HATCH)
+            if opcional_chave_norm in opcionais_norm:
+                return "Hatch"
+            else:
+                return "Sedan"
+        else:
+            # Para todos os outros casos (SUV, Caminhonete, etc.)
+            return categoria_result
+            
+    # Se não encontrou correspondência exata, verifica os modelos ambíguos
+    # Isso é útil para casos como "Onix LTZ" corresponder a "onix"
+    for modelo_ambiguo, categoria_ambigua in MAPEAMENTO_CATEGORIAS.items():
+        if categoria_ambigua == "hatch,sedan":
+            if normalizar_texto(modelo_ambiguo) in modelo_norm:
+                opcionais_norm = normalizar_texto(opcionais)
+                opcional_chave_norm = normalizar_texto(OPCIONAL_CHAVE_HATCH)
+                if opcional_chave_norm in opcionais_norm:
+                    return "Hatch"
+                else:
+                    return "Sedan"
 
-    # 1) Match EXATO (modelo inteiro == chave)
-    cat = MAPEAMENTO_CATEGORIAS.get(modelo_norm)
-    if cat:
-        if cat == "hatch,sedan":
-            return "Hatch" if opc_key in opcionais_norm else "Sedan"
-        return cat
-
-    # Prepara chaves ordenadas por tamanho (mais específicas primeiro)
-    keys_by_len = sorted(MAPEAMENTO_CATEGORIAS.keys(), key=len, reverse=True)
-
-    # 2) Frases multi-palavra (ex.: "range rover evoque", "t cross")
-    for key in (k for k in keys_by_len if " " in k):
-        if re.search(rf'(?<!\w){re.escape(key)}(?!\w)', modelo_norm):
-            cat = MAPEAMENTO_CATEGORIAS[key]
-            if cat == "hatch,sedan":
-                return "Hatch" if opc_key in opcionais_norm else "Sedan"
-            return cat
-
-    # 3) Token único (ex.: "compass", "tiguan", "kicks") — bateu o token, retorna
-    tokens = set(modelo_norm.split())
-    for key in (k for k in keys_by_len if " " not in k):
-        if key in tokens:
-            cat = MAPEAMENTO_CATEGORIAS[key]
-            if cat == "hatch,sedan":
-                return "Hatch" if opc_key in opcionais_norm else "Sedan"
-            return cat
-
-    return None
+    return None # Nenhuma correspondência encontrada
 
 def inferir_cilindrada_e_categoria_moto(modelo: str, versao: str = "") -> Tuple[Optional[int], Optional[str]]:
    """
