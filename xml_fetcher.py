@@ -613,7 +613,7 @@ def testar_extracao_modelo():
                 tipo_final = "moto"
             else:
                 categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
-                cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_vimport requests
+                cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_vimport requests)
 import xmltodict
 import json
 import os
