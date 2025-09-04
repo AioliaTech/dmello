@@ -112,6 +112,7 @@ MAPEAMENTO_MOTOS = {
     "cb300": (300, "street"),  # Variação sem espaço
     "cb twister": (300, "street"),
     "twister": (300, "street"),
+    "fz6": (150, "street"),
     
     # Scooter (transmissão automática, design step-through)
     
@@ -234,6 +235,7 @@ MAPEAMENTO_MOTOS = {
     "tiger 900": (900, "bigtrail"),
     "tiger900": (900, "bigtrail"),  # Variação sem espaço
     "himalayan": (400, "bigtrail"),
+    "700 x": (700, "bigtrail"),
     
     # Esportiva Carenada (supersport, carenagem completa)
     "GSX-R 1000": (1000, "esportiva carenada"),
