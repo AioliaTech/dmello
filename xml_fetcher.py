@@ -116,6 +116,7 @@ MAPEAMENTO_MOTOS = {
     # Scooter (transmissão automática, design step-through)
     
     "SH 300": (300, "scooter"),
+    "lead 110": (110, "scooter"),
     "biz 125": (125, "scooter"),
     "jet 50": (50, "scooter"),
     "jl 50": (50, "scooter"),
@@ -186,9 +187,11 @@ MAPEAMENTO_MOTOS = {
     "lander 250": (250, "trail"),
     "lander250": (250, "trail"),  # Variação sem espaço
     "falcon": (400, "trail"),
+    "dl160": (160, "trail"),
     
     # BigTrail/Adventure (alta cilindrada, touring)
     "cb 500x": (500, "bigtrail"),   
+    "tiger 660": (660, "trail"),
     "DL 650 ": (650, "bigtrail"),
     "DL 650 XT": (650, "bigtrail"),
     "R 1200 GS": (1200, "bigtrail"),
