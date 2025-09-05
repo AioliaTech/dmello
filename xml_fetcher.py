@@ -936,10 +936,10 @@ class RevendaproParser(BaseParser):
                 tipo_final = v.get("Tipo")
 
             parsed = self.normalize_vehicle({
-                "id": v.get("Codigo"), "tipo": v.get("Tipo"), "titulo": v.get("ModeloVersao"), "versao": versao_veiculo,
-                "marca": v.get("Marca"), "modelo": v.get("ModeloVersao"), "ano": v.get("AnoModelo"),
+                "id": v.get("Codigo"), "tipo": v.get("Tipo"), "titulo": v.get(""), "versao": v.get("Versao"),
+                "marca": v.get("Marca"), "modelo": v.get("Modelo"), "ano": v.get("AnoModelo"),
                 "ano_fabricacao": v.get("AnoFabr"), "km": v.get("km"), "cor": v.get("Cor"),
-                "combustivel": v.get("Combustivel"), "cambio": v.get("Cambio"), "Motor": v.get("ModeloVersao"),
+                "combustivel": v.get("Combustivel"), "cambio": v.get("Cambio"), "Motor": (v.get("Versao") or "").split()[0],
                 "portas": v.get("Portas"), "categoria": categoria_final,
                 "cilindrada": cilindrada_final, "preco": converter_preco(v.get("Preco")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
