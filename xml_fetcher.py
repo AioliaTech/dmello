@@ -364,6 +364,7 @@ MAPEAMENTO_MOTOS = {
     "bonneville": (900, "custom"),
     "mt 01": (1700, "custom"),
     "mt01": (1700, "custom"),
+    "Meteor Supernova": (350, "custom"),
     "VT 600 ": (600, "custom"),# Variação sem espaço
     
     # Touring (longas distâncias, conforto)
