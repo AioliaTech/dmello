@@ -61,7 +61,8 @@ for model in offroad_models: MAPEAMENTO_CATEGORIAS[model] = "Off-road"
 MAPEAMENTO_MOTOS = {
     # Street/Urbanas (commuter básicas e econômicas)
     
-    "DK 150": (150, "street"),    
+    "DK 150": (150, "street"),
+    "SPEED 400": (400, "street"),
     "FAN Flex": (160, "street"),    
     "FZ15 150": (150, "street"),
     "xy 150": (150, "street"),
@@ -236,6 +237,7 @@ MAPEAMENTO_MOTOS = {
     "tiger900": (900, "bigtrail"),  # Variação sem espaço
     "himalayan": (400, "bigtrail"),
     "700 x": (700, "bigtrail"),
+    "TIGER 1200": (1200, "bigtrail"),
     
     # Esportiva Carenada (supersport, carenagem completa)
     "GSX-R 1000": (1000, "esportiva carenada"),
@@ -361,7 +363,8 @@ MAPEAMENTO_MOTOS = {
     "r18": (1800, "custom"),  # Variação sem espaço
     "bonneville": (900, "custom"),
     "mt 01": (1700, "custom"),
-    "mt01": (1700, "custom"),  # Variação sem espaço
+    "mt01": (1700, "custom"),
+    "VT 600 ": (600, "custom"),# Variação sem espaço
     
     # Touring (longas distâncias, conforto)
     "ELECTRA GLIDE ULTRA": (1700, "touring"),
@@ -376,6 +379,7 @@ MAPEAMENTO_MOTOS = {
     "xt660": (660, "touring"),  # Variação sem espaço
     "xt 600": (600, "touring"),
     "xt600": (600, "touring"),  # Variação sem espaço
+    "HERITAGE": (1690, "touring"),
     
     # ATV/Quadriciclo
     "cforce 1000": (1000, "custom"),
