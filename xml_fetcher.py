@@ -939,7 +939,8 @@ class RevendaproParser(BaseParser):
                 "id": v.get("Codigo"), "tipo": v.get("Tipo"), "titulo": v.get(""), "versao": v.get("Versao"),
                 "marca": v.get("Marca"), "modelo": v.get("Modelo"), "ano": v.get("AnoModelo"),
                 "ano_fabricacao": v.get("AnoFabr"), "km": v.get("km"), "cor": v.get("Cor"),
-                "combustivel": v.get("Combustivel"), "cambio": v.get("Cambio"), "Motor": (v.get("Versao") or "").split()[0],
+                "combustivel": v.get("Combustivel"), "cambio": v.get("Cambio"), "Motor": (v.get("Versao") or "").split()[0] if (v.get("Versao") and (v.get("Versao").split())) else None
+,
                 "portas": v.get("Portas"), "categoria": categoria_final,
                 "cilindrada": cilindrada_final, "preco": converter_preco(v.get("Preco")),
                 "opcionais": opcionais_veiculo, "fotos": self.extract_photos(v)
