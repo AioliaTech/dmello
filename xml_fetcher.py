@@ -941,11 +941,9 @@ class RevendaproParser(BaseParser):
             
             if is_moto:
                 cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
-                tipo_final = "moto"
             else:
                 categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
                 cilindrada_final = inferir_cilindrada(modelo_veiculo, versao_veiculo)
-                tipo_final = v.get("Tipo")
 
             parsed = self.normalize_vehicle({
                 "id": v.get("Codigo"), "tipo": v.get("Tipo"), "titulo": v.get(""), "versao": v.get("Versao"),
