@@ -635,6 +635,7 @@ class AltimusParser(BaseParser):
             tipo_veiculo = v.get("tipo", "").lower()
             is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
             
+
             if is_moto:
                 # Para motos: usa o novo sistema com modelo E versão
                 cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
@@ -645,7 +646,7 @@ class AltimusParser(BaseParser):
             
             parsed = self.normalize_vehicle({
                 "id": v.get("id"), 
-                "tipo": "moto" if is_moto else ("carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo")), 
+                "tipo": tipo_final,
                 "titulo": None, "versao": versao_veiculo,
                 "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
                 "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
