@@ -931,8 +931,8 @@ class RevendaproParser(BaseParser):
         
         parsed_vehicles = []
         for v in ads:
-            modelo_veiculo = v.get("ModeloVersao")
-            versao_veiculo = v.get("ModeloVersao")
+            modelo_veiculo = v.get("Modelo")
+            versao_veiculo = v.get("Versao")
             opcionais_veiculo = v.get("Equipamentos") or ""
             
             # Determina se é moto ou carro
