@@ -440,7 +440,14 @@ def definir_categoria_veiculo(modelo: str, opcionais: str = "") -> Optional[str]
                     return "Hatch"
                 else:
                     return "Sedan"
-
+    
+    # ADICIONE ESTE BLOCO AQUI:
+    # Busca parcial para categorias não ambíguas
+    for modelo_mapeado, categoria in MAPEAMENTO_CATEGORIAS.items():
+        if categoria != "hatch,sedan":  # Pula os ambíguos que já foram tratados acima
+            if normalizar_texto(modelo_mapeado) in modelo_norm:
+                return categoria
+    
     return None # Nenhuma correspondência encontrada
 
 def inferir_cilindrada_e_categoria_moto(modelo: str, versao: str = "") -> Tuple[Optional[int], Optional[str]]:
