@@ -621,48 +621,47 @@ class AltimusParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool: 
         return "altimus.com.br" in url.lower()
     
-    def parse(self, data: Any, url: str) -> List[Dict]:
-        veiculos = data.get("veiculos", [])
+    def parse(self, data: Any, url: str) -> List[Dict]: 
+        veiculos = data.get("veiculos", []) 
         if isinstance(veiculos, dict): veiculos = [veiculos]
         
-        parsed_vehicles = []
-        for v in veiculos:
-            modelo_veiculo = v.get("modelo")
-            versao_veiculo = v.get("versao")
+        parsed_vehicles = [] 
+        for v in veiculos: 
+            modelo_veiculo = v.get("modelo") 
+            versao_veiculo = v.get("versao") 
             opcionais_veiculo = self._parse_opcionais(v.get("opcionais"))
             
-            # Determina se é moto ou carro
-            tipo_veiculo = v.get("tipo", "").lower()
+            # Determina se é moto ou carro 
+            tipo_veiculo = v.get("tipo", "").lower() 
             is_moto = "moto" in tipo_veiculo or "motocicleta" in tipo_veiculo
             
-
-            if is_moto:
-                # Para motos: usa o novo sistema com modelo E versão
-                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo)
-            else:
-                # Para carros: usa o sistema existente
-                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo)
+            if is_moto: 
+                # Para motos: usa o novo sistema com modelo E versão 
+                cilindrada_final, categoria_final = inferir_cilindrada_e_categoria_moto(modelo_veiculo, versao_veiculo) 
+            else: 
+                # Para carros: usa o sistema existente 
+                categoria_final = definir_categoria_veiculo(modelo_veiculo, opcionais_veiculo) 
                 cilindrada_final = v.get("cilindrada") or inferir_cilindrada(modelo_veiculo, versao_veiculo)
             
-            parsed = self.normalize_vehicle({
+            parsed = self.normalize_vehicle({ 
                 "id": v.get("id"), 
-                "tipo": tipo_final,
-                "titulo": None, "versao": versao_veiculo,
-                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"),
-                "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"),
+                "tipo": "eletrico" if v.get("tipo") in ["Bicicleta", "Patinete Elétrico"] else ("moto" if is_moto else ("carro" if v.get("tipo") == "Carro/Camioneta" else v.get("tipo"))), 
+                "titulo": None, "versao": versao_veiculo, 
+                "marca": v.get("marca"), "modelo": modelo_veiculo, "ano": v.get("anoModelo") or v.get("ano"), 
+                "ano_fabricacao": v.get("anoFabricacao") or v.get("ano_fabricacao"), "km": v.get("km"), 
                 "cor": v.get("cor"), "combustivel": v.get("combustivel"), 
-                "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")),
+                "cambio": "manual" if "manual" in str(v.get("cambio", "")).lower() else ("automatico" if "automático" in str(v.get("cambio", "")).lower() else v.get("cambio")), 
                 "motor": re.search(r'\b(\d+\.\d+)\b', str(versao_veiculo or "")).group(1) if re.search(r'\b(\d+\.\d+)\b', str(versao_veiculo or "")) else None, 
-                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"),
-                "cilindrada": cilindrada_final,
-                "preco": converter_preco(v.get("valorVenda") or v.get("preco")),
-                "opcionais": opcionais_veiculo, "fotos": v.get("fotos", [])
-            })
-            parsed_vehicles.append(parsed)
+                "portas": v.get("portas"), "categoria": categoria_final or v.get("categoria"), 
+                "cilindrada": cilindrada_final, 
+                "preco": converter_preco(v.get("valorVenda") or v.get("preco")), 
+                "opcionais": opcionais_veiculo, "fotos": v.get("fotos", []) 
+            }) 
+            parsed_vehicles.append(parsed) 
         return parsed_vehicles
     
-    def _parse_opcionais(self, opcionais: Any) -> str:
-        if isinstance(opcionais, list): return ", ".join(str(item) for item in opcionais if item)
+    def _parse_opcionais(self, opcionais: Any) -> str: 
+        if isinstance(opcionais, list): return ", ".join(str(item) for item in opcionais if item) 
         return str(opcionais) if opcionais else ""
 
 class AutocertoParser(BaseParser):
