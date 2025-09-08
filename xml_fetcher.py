@@ -1176,6 +1176,35 @@ class SimplesVeiculoParser(BaseParser):
     def can_parse(self, data: Any, url: str) -> bool:
         return "simplesveiculo.com.br" in url.lower()
     
+    def _fetch_price_from_secondary_source(self, vehicle_id: str) -> Optional[float]:
+        """
+        Busca o preço do veículo na fonte secundária (XML_URL_2)
+        """
+        try:
+            xml_url_2 = os.environ.get('XML_URL_2')
+            if not xml_url_2:
+                return None
+                
+            response = requests.get(xml_url_2, timeout=30)
+            response.raise_for_status()
+            
+            price_data = response.json()
+            
+            # O JSON é um array de objetos com estrutura:
+            # [{"id": "344364", "valor": "19000.00", ...}, ...]
+            
+            for vehicle in price_data:
+                if str(vehicle.get("id")) == str(vehicle_id):
+                    valor = vehicle.get("valor")
+                    if valor:
+                        return converter_preco(valor)
+            
+            return None
+            
+        except Exception as e:
+            print(f"Erro ao buscar preço da fonte secundária: {e}")
+            return None
+    
     def parse(self, data: Any, url: str) -> List[Dict]:
         """
         Processa dados do SimplesVeiculo
@@ -1192,6 +1221,8 @@ class SimplesVeiculoParser(BaseParser):
         for v in veiculos:
             if not isinstance(v, dict):
                 continue
+            
+            vehicle_id = v.get("vehicle_id")
             
             # Extrai informações básicas
             titulo = v.get("title", "")
@@ -1230,8 +1261,12 @@ class SimplesVeiculoParser(BaseParser):
             # Processa câmbio
             cambio_final = self._map_transmission(v.get("transmission", ""))
             
+            # BUSCA O PREÇO DA FONTE SECUNDÁRIA
+            preco_secundario = self._fetch_price_from_secondary_source(vehicle_id)
+            preco_final = preco_secundario if preco_secundario is not None else converter_preco(v.get("price"))
+            
             parsed = self.normalize_vehicle({
-                "id": v.get("vehicle_id"),
+                "id": vehicle_id,
                 "tipo": tipo_final,
                 "titulo": titulo,
                 "versao": self._clean_version(modelo_completo, marca),
@@ -1247,7 +1282,7 @@ class SimplesVeiculoParser(BaseParser):
                 "portas": None,  # Não fornecido explicitamente
                 "categoria": categoria_final,
                 "cilindrada": cilindrada_final,
-                "preco": converter_preco(v.get("price")),
+                "preco": preco_final,
                 "opcionais": "",  # SimplesVeiculo não fornece opcionais neste formato
                 "fotos": self._extract_photos_simples(v)
             })
