@@ -738,9 +738,9 @@ class VehicleSearchEngine:
         return sorted(vehicles, key=lambda v: self.convert_price(v.get("preco")) or 0, reverse=True)
     
     def search_with_fallback(self, vehicles: List[Dict], filters: Dict[str, str],
-                        valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
-                        ccmax: Optional[str], excluded_ids: set) -> SearchResult:
-    """Executa busca com fallback progressivo seguindo FALLBACK_PRIORITY"""
+                            valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
+                            ccmax: Optional[str], excluded_ids: set) -> SearchResult:
+        """Executa busca com fallback progressivo seguindo FALLBACK_PRIORITY"""
     
     # Primeira tentativa: busca normal (já inclui exato → fuzzy para modelo)
     filtered_vehicles = self.apply_filters(vehicles, filters)
@@ -925,6 +925,14 @@ class VehicleSearchEngine:
                 fallback_info=fallback_info,
                 removed_filters=removed_filters
             )
+    
+    # Nenhum resultado encontrado
+    return SearchResult(
+        vehicles=[],
+        total_found=0,
+        fallback_info={},
+        removed_filters=removed_filters
+    )
     
     # Nenhum resultado encontrado
     return SearchResult(
