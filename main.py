@@ -741,141 +741,88 @@ class VehicleSearchEngine:
                             valormax: Optional[str], anomax: Optional[str], kmmax: Optional[str],
                             ccmax: Optional[str], excluded_ids: set) -> SearchResult:
         """Executa busca com fallback progressivo seguindo FALLBACK_PRIORITY"""
-    
-    # Primeira tentativa: busca normal (já inclui exato → fuzzy para modelo)
-    filtered_vehicles = self.apply_filters(vehicles, filters)
-    filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
-    
-    if excluded_ids:
-        filtered_vehicles = [
-            v for v in filtered_vehicles
-            if str(v.get("id")) not in excluded_ids
-        ]
-    
-    if filtered_vehicles:
-        sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
         
-        return SearchResult(
-            vehicles=sorted_vehicles[:6],
-            total_found=len(sorted_vehicles),
-            fallback_info={},
-            removed_filters=[]
-        )
-    
-    # REGRA ESPECIAL: Se só tem 1 filtro e NÃO é 'modelo', não faz fallback
-    if len(filters) == 1 and "modelo" not in filters:
-        return SearchResult(
-            vehicles=[],
-            total_found=0,
-            fallback_info={"no_fallback_reason": "single_filter_not_model"},
-            removed_filters=[]
-        )
-    
-    # Fallback normal: segue a ordem FALLBACK_PRIORITY
-    current_filters = dict(filters)
-    removed_filters = []
-    current_valormax = valormax
-    current_anomax = anomax
-    current_kmmax = kmmax
-    current_ccmax = ccmax
-    
-    for filter_to_remove in FALLBACK_PRIORITY:
-        if filter_to_remove == "KmMax" and current_kmmax:
-            # Verifica se existem veículos que atendem ao KmMax antes de remover
-            test_vehicles = self.apply_filters(vehicles, current_filters)
-            vehicles_within_km_limit = [
-                v for v in test_vehicles
-                if self.convert_km(v.get("km")) is not None and
-                self.convert_km(v.get("km")) <= int(current_kmmax)
+        # Primeira tentativa: busca normal (já inclui exato → fuzzy para modelo)
+        filtered_vehicles = self.apply_filters(vehicles, filters)
+        filtered_vehicles = self.apply_range_filters(filtered_vehicles, valormax, anomax, kmmax, ccmax)
+        
+        if excluded_ids:
+            filtered_vehicles = [
+                v for v in filtered_vehicles
+                if str(v.get("id")) not in excluded_ids
             ]
+        
+        if filtered_vehicles:
+            sorted_vehicles = self.sort_vehicles(filtered_vehicles, valormax, anomax, kmmax, ccmax)
             
-            if not vehicles_within_km_limit:
-                current_kmmax = None
-                removed_filters.append("KmMax")
-            else:
-                continue
+            return SearchResult(
+                vehicles=sorted_vehicles[:6],
+                total_found=len(sorted_vehicles),
+                fallback_info={},
+                removed_filters=[]
+            )
+        
+        # REGRA ESPECIAL: Se só tem 1 filtro e NÃO é 'modelo', não faz fallback
+        if len(filters) == 1 and "modelo" not in filters:
+            return SearchResult(
+                vehicles=[],
+                total_found=0,
+                fallback_info={"no_fallback_reason": "single_filter_not_model"},
+                removed_filters=[]
+            )
+        
+        # Fallback normal: segue a ordem FALLBACK_PRIORITY
+        current_filters = dict(filters)
+        removed_filters = []
+        current_valormax = valormax
+        current_anomax = anomax
+        current_kmmax = kmmax
+        current_ccmax = ccmax
+        
+        for filter_to_remove in FALLBACK_PRIORITY:
+            if filter_to_remove == "KmMax" and current_kmmax:
+                # Verifica se existem veículos que atendem ao KmMax antes de remover
+                test_vehicles = self.apply_filters(vehicles, current_filters)
+                vehicles_within_km_limit = [
+                    v for v in test_vehicles
+                    if self.convert_km(v.get("km")) is not None and
+                    self.convert_km(v.get("km")) <= int(current_kmmax)
+                ]
                 
-        elif filter_to_remove == "AnoMax" and current_anomax:
-            test_vehicles = self.apply_filters(vehicles, current_filters)
-            vehicles_within_year_limit = [
-                v for v in test_vehicles
-                if self.convert_year(v.get("ano")) is not None and
-                self.convert_year(v.get("ano")) <= int(current_anomax)
-            ]
-            
-            if not vehicles_within_year_limit:
-                current_anomax = None
-                removed_filters.append("AnoMax")
-            else:
-                continue
+                if not vehicles_within_km_limit:
+                    current_kmmax = None
+                    removed_filters.append("KmMax")
+                else:
+                    continue
+                    
+            elif filter_to_remove == "AnoMax" and current_anomax:
+                test_vehicles = self.apply_filters(vehicles, current_filters)
+                vehicles_within_year_limit = [
+                    v for v in test_vehicles
+                    if self.convert_year(v.get("ano")) is not None and
+                    self.convert_year(v.get("ano")) <= int(current_anomax)
+                ]
                 
-        elif filter_to_remove == "modelo" and filter_to_remove in current_filters:
-            # NOVA LÓGICA: Quando remover modelo, converte para categoria se não existir categoria
-            model_value = current_filters["modelo"]
-            
-            # Se não há categoria definida, tenta mapear o modelo para categoria
-            if "categoria" not in current_filters or not current_filters["categoria"]:
-                mapped_category = self.find_category_by_model(model_value)
-                if mapped_category:
-                    # Remove modelo e adiciona categoria mapeada
-                    current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
-                    current_filters["categoria"] = mapped_category
-                    removed_filters.append(f"modelo({model_value})->categoria({mapped_category})")
-                    
-                    # Testa busca com categoria mapeada
-                    filtered_vehicles = self.apply_filters(vehicles, current_filters)
-                    filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                    
-                    if excluded_ids:
-                        filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
-                    
-                    if filtered_vehicles:
-                        sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-                        fallback_info = {
-                            "fallback": {
-                                "removed_filters": removed_filters,
-                                "reason": "modelo_to_categoria_conversion"
-                            }
-                        }
-                        
-                        return SearchResult(
-                            vehicles=sorted_vehicles[:6],
-                            total_found=len(sorted_vehicles),
-                            fallback_info=fallback_info,
-                            removed_filters=removed_filters
-                        )
+                if not vehicles_within_year_limit:
+                    current_anomax = None
+                    removed_filters.append("AnoMax")
                 else:
-                    # Se não conseguiu mapear para categoria, remove modelo normalmente
-                    # mas só se houver outros filtros suficientes
-                    remaining_filters = [k for k, v in current_filters.items() if v and k != "modelo"]
-                    if len(remaining_filters) >= 1:  # Precisa ter pelo menos 1 outro filtro
-                        current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
-                        removed_filters.append(f"modelo({model_value})")
-                    else:
-                        # Se remover modelo deixaria sem filtros suficientes, para o fallback
-                        break
-            else:
-                # Se já tem categoria, remove modelo normalmente
-                remaining_filters = [k for k, v in current_filters.items() if v and k != "modelo"]
-                if len(remaining_filters) >= 1:
-                    current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
-                    removed_filters.append(f"modelo({model_value})")
-                else:
-                    break
+                    continue
                     
-        elif filter_to_remove in current_filters:
-            # REGRA: Não faz fallback se sobrar apenas 1 filtro
-            remaining_filters = [k for k, v in current_filters.items() if v and k != filter_to_remove]
-            if len(remaining_filters) <= 1:
-                # CASO ESPECIAL: Se sobrou só "modelo", tenta converter para categoria
-                if remaining_filters == ["modelo"]:
-                    model_value = current_filters["modelo"]
+            elif filter_to_remove == "modelo" and filter_to_remove in current_filters:
+                # NOVA LÓGICA: Quando remover modelo, converte para categoria se não existir categoria
+                model_value = current_filters["modelo"]
+                
+                # Se não há categoria definida, tenta mapear o modelo para categoria
+                if "categoria" not in current_filters or not current_filters["categoria"]:
                     mapped_category = self.find_category_by_model(model_value)
                     if mapped_category:
-                        current_filters = {"categoria": mapped_category}
+                        # Remove modelo e adiciona categoria mapeada
+                        current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
+                        current_filters["categoria"] = mapped_category
                         removed_filters.append(f"modelo({model_value})->categoria({mapped_category})")
                         
-                        # Tenta busca com categoria mapeada
+                        # Testa busca com categoria mapeada
                         filtered_vehicles = self.apply_filters(vehicles, current_filters)
                         filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
                         
@@ -887,7 +834,7 @@ class VehicleSearchEngine:
                             fallback_info = {
                                 "fallback": {
                                     "removed_filters": removed_filters,
-                                    "reason": "modelo_to_categoria_fallback"
+                                    "reason": "modelo_to_categoria_conversion"
                                 }
                             }
                             
@@ -897,42 +844,95 @@ class VehicleSearchEngine:
                                 fallback_info=fallback_info,
                                 removed_filters=removed_filters
                             )
-                break
+                    else:
+                        # Se não conseguiu mapear para categoria, remove modelo normalmente
+                        # mas só se houver outros filtros suficientes
+                        remaining_filters = [k for k, v in current_filters.items() if v and k != "modelo"]
+                        if len(remaining_filters) >= 1:  # Precisa ter pelo menos 1 outro filtro
+                            current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
+                            removed_filters.append(f"modelo({model_value})")
+                        else:
+                            # Se remover modelo deixaria sem filtros suficientes, para o fallback
+                            break
+                else:
+                    # Se já tem categoria, remove modelo normalmente
+                    remaining_filters = [k for k, v in current_filters.items() if v and k != "modelo"]
+                    if len(remaining_filters) >= 1:
+                        current_filters = {k: v for k, v in current_filters.items() if k != "modelo"}
+                        removed_filters.append(f"modelo({model_value})")
+                    else:
+                        break
+                        
+            elif filter_to_remove in current_filters:
+                # REGRA: Não faz fallback se sobrar apenas 1 filtro
+                remaining_filters = [k for k, v in current_filters.items() if v and k != filter_to_remove]
+                if len(remaining_filters) <= 1:
+                    # CASO ESPECIAL: Se sobrou só "modelo", tenta converter para categoria
+                    if remaining_filters == ["modelo"]:
+                        model_value = current_filters["modelo"]
+                        mapped_category = self.find_category_by_model(model_value)
+                        if mapped_category:
+                            current_filters = {"categoria": mapped_category}
+                            removed_filters.append(f"modelo({model_value})->categoria({mapped_category})")
+                            
+                            # Tenta busca com categoria mapeada
+                            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+                            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                            
+                            if excluded_ids:
+                                filtered_vehicles = [v for v in filtered_vehicles if str(v.get("id")) not in excluded_ids]
+                            
+                            if filtered_vehicles:
+                                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                                fallback_info = {
+                                    "fallback": {
+                                        "removed_filters": removed_filters,
+                                        "reason": "modelo_to_categoria_fallback"
+                                    }
+                                }
+                                
+                                return SearchResult(
+                                    vehicles=sorted_vehicles[:6],
+                                    total_found=len(sorted_vehicles),
+                                    fallback_info=fallback_info,
+                                    removed_filters=removed_filters
+                                )
+                    break
+                
+                # Remove o filtro atual
+                current_filters = {k: v for k, v in current_filters.items() if k != filter_to_remove}
+                removed_filters.append(filter_to_remove)
+            else:
+                continue
             
-            # Remove o filtro atual
-            current_filters = {k: v for k, v in current_filters.items() if k != filter_to_remove}
-            removed_filters.append(filter_to_remove)
-        else:
-            continue
-        
-        # Tenta busca sem o parâmetro/filtro removido
-        filtered_vehicles = self.apply_filters(vehicles, current_filters)
-        filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-        
-        if excluded_ids:
-            filtered_vehicles = [
-                v for v in filtered_vehicles
-                if str(v.get("id")) not in excluded_ids
-            ]
-        
-        if filtered_vehicles:
-            sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
-            fallback_info = {"fallback": {"removed_filters": removed_filters}}
+            # Tenta busca sem o parâmetro/filtro removido
+            filtered_vehicles = self.apply_filters(vehicles, current_filters)
+            filtered_vehicles = self.apply_range_filters(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
             
-            return SearchResult(
-                vehicles=sorted_vehicles[:6],
-                total_found=len(sorted_vehicles),
-                fallback_info=fallback_info,
-                removed_filters=removed_filters
-            )
-    
-    # Nenhum resultado encontrado
-    return SearchResult(
-        vehicles=[],
-        total_found=0,
-        fallback_info={},
-        removed_filters=removed_filters
-    )
+            if excluded_ids:
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if str(v.get("id")) not in excluded_ids
+                ]
+            
+            if filtered_vehicles:
+                sorted_vehicles = self.sort_vehicles(filtered_vehicles, current_valormax, current_anomax, current_kmmax, current_ccmax)
+                fallback_info = {"fallback": {"removed_filters": removed_filters}}
+                
+                return SearchResult(
+                    vehicles=sorted_vehicles[:6],
+                    total_found=len(sorted_vehicles),
+                    fallback_info=fallback_info,
+                    removed_filters=removed_filters
+                )
+        
+        # Nenhum resultado encontrado
+        return SearchResult(
+            vehicles=[],
+            total_found=0,
+            fallback_info={},
+            removed_filters=removed_filters
+        )
 
 # Instância global do motor de busca
 search_engine = VehicleSearchEngine()
