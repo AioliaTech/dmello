@@ -1283,7 +1283,7 @@ class SimplesVeiculoParser(BaseParser):
                 "categoria": categoria_final,
                 "cilindrada": cilindrada_final,
                 "preco": preco_final,
-                "opcionais": "",  # SimplesVeiculo não fornece opcionais neste formato
+                "opcionais": v.get("description"),  # SimplesVeiculo não fornece opcionais neste formato
                 "fotos": self._extract_photos_simples(v)
             })
             
