@@ -231,11 +231,11 @@ suv_models = ["xc60", "edge", "outlander", "range rover evoque", "song plus", "d
 for model in suv_models: 
     MAPEAMENTO_CATEGORIAS[model] = "suv"
 
-caminhonete_models = ["duster oroch", "hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "maverick", "montana", "ram 1500", "rampage", "f-250", "f250", "courier", "dakota", "gladiator", "hoggar"]
+caminhonete_models = ["duster oroch", "hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "maverick", "ram 1500", "rampage", "f-250", "f250", "dakota", "gladiator", "hoggar"]
 for model in caminhonete_models: 
     MAPEAMENTO_CATEGORIAS[model] = "caminhonete"
 
-utilitario_models = ["saveiro", "strada", "oroch", "kangoo", "partner", "doblo", "fiorino", "kombi", "doblo cargo", "berlingo", "combo", "express", "hr"]
+utilitario_models = ["courier", "saveiro", "montana", "strada", "oroch", "kangoo", "partner", "doblo", "fiorino", "kombi", "doblo cargo", "berlingo", "combo", "express", "hr"]
 for model in utilitario_models: 
     MAPEAMENTO_CATEGORIAS[model] = "utilitario"
 
