@@ -516,7 +516,7 @@ class VehicleSearchEngine:
             return False, "empty_input"
         
         # Define o threshold baseado no tipo do veículo
-        fuzzy_threshold = 98 if vehicle_type == "moto" else 87
+        fuzzy_threshold = 98 if vehicle_type == "moto" else 90
         
         # Para motos: exige que TODAS as palavras façam match
         # Para outros veículos: mantém a lógica original (qualquer palavra)
