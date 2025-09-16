@@ -1248,7 +1248,7 @@ class SimplesVeiculoParser(BaseParser):
                 tipo_final = "moto"
             else:
                 # Para carros: usa o sistema existente
-                categoria_final = self._map_body_style_to_categoria(body_style) or definir_categoria_veiculo(modelo_final, "")
+                categoria_final = definir_categoria_veiculo(modelo_final, "")
                 cilindrada_final = inferir_cilindrada(modelo_final, modelo_completo)
                 tipo_final = "carro"
             
