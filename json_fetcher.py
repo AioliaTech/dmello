@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import re
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
@@ -29,6 +30,7 @@ def safe_get(data: Dict, keys: List[str], default: Any = None) -> Any:
 def normalize_images(imagens_data: Any) -> List[str]:
     """
     Normaliza diferentes estruturas de imagens para uma lista simples de URLs.
+    Remove parâmetros de query (?v...) das URLs.
     """
     if not imagens_data:
         return []
@@ -47,13 +49,17 @@ def normalize_images(imagens_data: Any) -> List[str]:
                         result.append(str(item[key]).strip())
                         break
     
-    # Remove duplicatas mantendo a ordem
+    # Remove duplicatas mantendo a ordem e limpa URLs
     seen = set()
     normalized = []
     for url in result:
         if url and url not in seen:
-            seen.add(url)
-            normalized.append(url)
+            # Limpa a URL: remove tudo depois da extensão do arquivo
+            # Suporta: .png, .jpg, .jpeg, .gif, .webp, etc
+            clean_url = re.sub(r'(\.(png|jpg|jpeg|gif|webp|bmp|svg))(\?.*)?$', r'\1', url, flags=re.IGNORECASE)
+            
+            seen.add(clean_url)
+            normalized.append(clean_url)
     
     return normalized
 
@@ -72,26 +78,19 @@ class BaseParser(ABC):
         produto["imagens"] = normalize_images(imagens)
         
         return {
-            "id": produto.get("id"),
             "codigo": produto.get("codigo"),
-            "gtin": produto.get("gtin"),
             "nome": produto.get("nome"),
             "complemento": produto.get("complemento"),
             "marca": produto.get("marca"),
             "modelo": produto.get("modelo"),
             "preco": produto.get("preco", 0.0),
-            "valor_promocao": produto.get("valor_promocao", 0.0),
-            "estoque": produto.get("estoque", 0.0),
-            "estoque_min": produto.get("estoque_min", 0.0),
             "peso": produto.get("peso", 0.0),
             "altura": produto.get("altura", 0.0),
             "largura": produto.get("largura", 0.0),
             "comprimento": produto.get("comprimento", 0.0),
             "categorias": produto.get("categorias"),
             "observacao": produto.get("observacao", ""),
-            "imagens": produto.get("imagens", []),
-            "inativo": produto.get("inativo", False),
-            "excluido": produto.get("excluido", False)
+            "imagens": produto.get("imagens", [])
         }
 
 class ZettaBrasilParser(BaseParser):
@@ -125,31 +124,24 @@ class ZettaBrasilParser(BaseParser):
             if not isinstance(item, dict):
                 continue
             
-            # Filtra produtos excluídos se necessário
+            # Filtra produtos excluídos
             if item.get("excluido", False):
                 continue
             
             parsed = self.normalize_product({
-                "id": item.get("pro_cod"),
                 "codigo": item.get("codigo"),
-                "gtin": item.get("gtin"),
                 "nome": item.get("nome"),
                 "complemento": item.get("complemento"),
                 "marca": item.get("marca"),
                 "modelo": item.get("modelo"),
                 "preco": converter_preco(item.get("preco")),
-                "valor_promocao": converter_preco(item.get("valor_promocao")),
-                "estoque": float(item.get("estoque", 0.0)),
-                "estoque_min": float(item.get("estoque_min", 0.0)),
                 "peso": float(item.get("peso", 0.0)),
                 "altura": float(item.get("altura", 0.0)),
                 "largura": float(item.get("largura", 0.0)),
                 "comprimento": float(item.get("comprimento", 0.0)),
                 "categorias": item.get("categorias"),
                 "observacao": item.get("observacao", ""),
-                "imagens": item.get("imagens", []),
-                "inativo": item.get("inativar_itens", False),
-                "excluido": item.get("excluido", False)
+                "imagens": item.get("imagens", [])
             })
             
             parsed_products.append(parsed)
@@ -241,8 +233,7 @@ class UnifiedProductFetcher:
         stats = {
             "total_produtos": len(products),
             "com_imagem": sum(1 for p in products if p.get("imagens")),
-            "em_promocao": sum(1 for p in products if p.get("valor_promocao", 0) > 0),
-            "sem_estoque": sum(1 for p in products if p.get("estoque", 0) <= 0),
+            "sem_preco": sum(1 for p in products if p.get("preco", 0) <= 0),
             "top_marcas": {},
             "faixa_preco": {
                 "ate_10": 0,
@@ -255,7 +246,8 @@ class UnifiedProductFetcher:
         for product in products:
             # Top marcas
             marca = product.get("marca", "Sem marca")
-            stats["top_marcas"][marca] = stats["top_marcas"].get(marca, 0) + 1
+            if marca:  # Só conta se tiver marca
+                stats["top_marcas"][marca] = stats["top_marcas"].get(marca, 0) + 1
             
             # Faixa de preço
             preco = product.get("preco", 0)
@@ -277,12 +269,12 @@ class UnifiedProductFetcher:
         print(f"\nResumo Geral:")
         print(f"  Total de produtos: {stats['total_produtos']}")
         print(f"  Produtos com imagem: {stats['com_imagem']}")
-        print(f"  Produtos em promoção: {stats['em_promocao']}")
-        print(f"  Produtos sem estoque: {stats['sem_estoque']}")
+        print(f"  Produtos sem preço: {stats['sem_preco']}")
         
-        print(f"\nTop 5 Marcas:")
-        for marca, count in sorted(stats["top_marcas"].items(), key=lambda x: x[1], reverse=True)[:5]:
-            print(f"  • {marca}: {count}")
+        if stats["top_marcas"]:
+            print(f"\nTop 5 Marcas:")
+            for marca, count in sorted(stats["top_marcas"].items(), key=lambda x: x[1], reverse=True)[:5]:
+                print(f"  • {marca}: {count}")
         
         print(f"\nDistribuição por Faixa de Preço:")
         print(f"  • Até R$ 10: {stats['faixa_preco']['ate_10']}")
@@ -310,8 +302,9 @@ if __name__ == "__main__":
         print(f"Fontes processadas: {result.get('_sources_processed', 0)}")
         
         if total > 0:
-            print(f"\nExemplo dos primeiros 5 produtos:")
-            for i, p in enumerate(result['produtos'][:5], 1):
+            print(f"\nExemplo dos primeiros 3 produtos:")
+            for i, p in enumerate(result['produtos'][:3], 1):
                 preco = p.get('preco', 0.0)
-                estoque = p.get('estoque', 0.0)
-                print(f"{i}. {p.get('nome', 'N/A')} - {p.get('marca', 'N/A')} - R$ {preco:.2f} (Estoque: {estoque})")
+                print(f"{i}. {p.get('nome', 'N/A')} - {p.get('marca', 'N/A')} - R$ {preco:.2f}")
+                if p.get('imagens'):
+                    print(f"   Imagem: {p['imagens'][0]}")
