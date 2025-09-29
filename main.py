@@ -19,8 +19,9 @@ STATUS_FILE = "last_update_status.json"
 FALLBACK_PRIORITY = [
     "observacao",     # Primeiro a ser removido
     "modelo",
+    "complemento",
     "categorias",
-    "marca",          # Mais importante (nunca remove sozinho)
+    "marca",
     "nome"            # Último recurso
 ]
 
@@ -36,7 +37,14 @@ class ProductSearchEngine:
     """Engine de busca de produtos com sistema de fallback inteligente"""
     
     def __init__(self):
-        self.exact_fields = ["marca", "modelo", "gtin", "codigo"]
+        self.exact_fields = ["codigo"]
+        # Thresholds mais baixos para campos principais (mais flexível)
+        self.fuzzy_thresholds = {
+            "nome": 75,        # Muito flexível para nomes
+            "marca": 80,       # Flexível para marcas
+            "categorias": 85,  # Razoavelmente flexível para categorias
+            "default": 85      # Padrão para outros campos
+        }
         
     def normalize_text(self, text: str) -> str:
         """Normaliza texto para comparação"""
@@ -53,19 +61,6 @@ class ProductSearchEngine:
                 return float(price_str)
             
             cleaned = str(price_str).replace(",", ".").replace("R$", "").strip()
-            return float(cleaned)
-        except (ValueError, TypeError):
-            return None
-    
-    def convert_stock(self, stock_str: Any) -> Optional[float]:
-        """Converte string de estoque para float"""
-        if not stock_str:
-            return None
-        try:
-            if isinstance(stock_str, (int, float)):
-                return float(stock_str)
-            
-            cleaned = str(stock_str).replace(",", ".").strip()
             return float(cleaned)
         except (ValueError, TypeError):
             return None
@@ -102,47 +97,100 @@ class ProductSearchEngine:
         
         return True, f"exact_match: todas as palavras encontradas"
     
-    def fuzzy_match(self, query_words: List[str], field_content: str) -> Tuple[bool, str]:
-        """Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo"""
+    def fuzzy_match(self, query_words: List[str], field_content: str, field_name: str = "default") -> Tuple[bool, str]:
+        """
+        Verifica se há match fuzzy entre as palavras da query e o conteúdo do campo.
+        Usa threshold específico por campo para maior flexibilidade em campos principais.
+        """
         if not query_words or not field_content:
             return False, "empty_input"
         
         normalized_content = self.normalize_text(field_content)
-        fuzzy_threshold = 85
+        fuzzy_threshold = self.fuzzy_thresholds.get(field_name, self.fuzzy_thresholds["default"])
+        
+        matched_words = []
+        match_details = []
         
         for word in query_words:
             normalized_word = self.normalize_text(word)
             if len(normalized_word) < 2:
                 continue
             
-            # Match exato (substring)
+            word_matched = False
+            
+            # NÍVEL 1: Match exato (substring)
             if normalized_word in normalized_content:
-                return True, f"exact_match: {normalized_word}"
+                matched_words.append(normalized_word)
+                match_details.append(f"exact:{normalized_word}")
+                word_matched = True
+                continue
             
-            # Match no início da palavra
-            content_words = normalized_content.split()
-            for content_word in content_words:
-                if content_word.startswith(normalized_word):
-                    return True, f"starts_with_match: {normalized_word}"
+            # NÍVEL 2: Match no início da palavra
+            if not word_matched:
+                content_words = normalized_content.split()
+                for content_word in content_words:
+                    if content_word.startswith(normalized_word):
+                        matched_words.append(normalized_word)
+                        match_details.append(f"starts_with:{normalized_word}")
+                        word_matched = True
+                        break
             
-            # Match fuzzy para palavras com 3+ caracteres
-            if len(normalized_word) >= 3:
-                # Substring match
+            # NÍVEL 3: Substring match em palavras individuais
+            if not word_matched and len(normalized_word) >= 3:
+                content_words = normalized_content.split()
                 for content_word in content_words:
                     if normalized_word in content_word:
-                        return True, f"substring_match: {normalized_word} in {content_word}"
-                
-                # Fuzzy matching tradicional
+                        matched_words.append(normalized_word)
+                        match_details.append(f"substring:{normalized_word}>{content_word}")
+                        word_matched = True
+                        break
+            
+            # NÍVEL 4: Fuzzy match (similaridade fonética/ortográfica)
+            if not word_matched and len(normalized_word) >= 3:
+                # Testa contra o conteúdo completo
                 partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
                 ratio_score = fuzz.ratio(normalized_content, normalized_word)
+                
+                # Testa também contra palavras individuais
+                word_scores = []
+                content_words = normalized_content.split()
+                for content_word in content_words:
+                    if len(content_word) >= 3:
+                        word_score = max(
+                            fuzz.ratio(content_word, normalized_word),
+                            fuzz.partial_ratio(content_word, normalized_word)
+                        )
+                        word_scores.append((word_score, content_word))
+                
                 max_score = max(partial_score, ratio_score)
                 
+                # Se encontrou boa correspondência em palavra individual
+                if word_scores:
+                    best_word_score, best_word = max(word_scores, key=lambda x: x[0])
+                    if best_word_score > max_score:
+                        max_score = best_word_score
+                        match_details.append(f"fuzzy_word:{normalized_word}~{best_word}({max_score})")
+                    else:
+                        match_details.append(f"fuzzy:{normalized_word}({max_score})")
+                else:
+                    match_details.append(f"fuzzy:{normalized_word}({max_score})")
+                
                 if max_score >= fuzzy_threshold:
-                    return True, f"fuzzy_match: {max_score} (threshold: {fuzzy_threshold})"
+                    matched_words.append(normalized_word)
+                    word_matched = True
         
-        return False, "no_match"
+        # Para campos principais (nome, marca, categorias): basta 1 palavra ter match
+        # Para outros campos: todas as palavras devem ter match
+        if field_name in ["nome", "marca", "categorias"]:
+            if len(matched_words) >= 1:
+                return True, f"fuzzy_flexible: {', '.join(match_details)}"
+        else:
+            if len(matched_words) >= len([w for w in query_words if len(self.normalize_text(w)) >= 2]):
+                return True, f"fuzzy_strict: {', '.join(match_details)}"
+        
+        return False, f"no_match: {', '.join(match_details) if match_details else 'nenhuma correspondência'}"
     
-    def field_match(self, query_words: List[str], field_content: str) -> Tuple[bool, str]:
+    def field_match(self, query_words: List[str], field_content: str, field_name: str = "default") -> Tuple[bool, str]:
         """Busca em três níveis: Exato → Fuzzy → Falha"""
         
         # NÍVEL 1: Busca exata
@@ -150,8 +198,8 @@ class ProductSearchEngine:
         if exact_result:
             return True, f"EXACT: {exact_reason}"
         
-        # NÍVEL 2: Busca fuzzy
-        fuzzy_result, fuzzy_reason = self.fuzzy_match(query_words, field_content)
+        # NÍVEL 2: Busca fuzzy (com threshold específico por campo)
+        fuzzy_result, fuzzy_reason = self.fuzzy_match(query_words, field_content, field_name)
         if fuzzy_result:
             return True, f"FUZZY: {fuzzy_reason}"
         
@@ -176,7 +224,7 @@ class ProductSearchEngine:
                 continue
             
             if filter_key == "nome":
-                # Busca no nome do produto
+                # Busca MUITO flexível no nome
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -184,10 +232,11 @@ class ProductSearchEngine:
                 
                 filtered_products = [
                     p for p in filtered_products
-                    if self.field_match(all_words, str(p.get("nome", "")))[0]
+                    if self.field_match(all_words, str(p.get("nome", "")), "nome")[0]
                 ]
                 
             elif filter_key == "marca":
+                # Busca flexível na marca
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -195,7 +244,19 @@ class ProductSearchEngine:
                 
                 filtered_products = [
                     p for p in filtered_products
-                    if self.fuzzy_match(all_words, str(p.get("marca", "")))[0]
+                    if self.field_match(all_words, str(p.get("marca", "")), "marca")[0]
+                ]
+                
+            elif filter_key == "categorias":
+                # Busca flexível em categorias
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_products = [
+                    p for p in filtered_products
+                    if self.field_match(all_words, str(p.get("categorias", "")), "categorias")[0]
                 ]
                 
             elif filter_key == "modelo":
@@ -206,10 +267,10 @@ class ProductSearchEngine:
                 
                 filtered_products = [
                     p for p in filtered_products
-                    if self.fuzzy_match(all_words, str(p.get("modelo", "")))[0]
+                    if self.field_match(all_words, str(p.get("modelo", "")), "modelo")[0]
                 ]
                 
-            elif filter_key == "categorias":
+            elif filter_key == "complemento":
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -217,7 +278,7 @@ class ProductSearchEngine:
                 
                 filtered_products = [
                     p for p in filtered_products
-                    if self.fuzzy_match(all_words, str(p.get("categorias", "")))[0]
+                    if self.field_match(all_words, str(p.get("complemento", "")), "complemento")[0]
                 ]
                 
             elif filter_key == "observacao":
@@ -228,10 +289,11 @@ class ProductSearchEngine:
                 
                 filtered_products = [
                     p for p in filtered_products
-                    if self.fuzzy_match(all_words, str(p.get("observacao", "")))[0]
+                    if self.field_match(all_words, str(p.get("observacao", "")), "observacao")[0]
                 ]
                 
             elif filter_key in self.exact_fields:
+                # Busca exata para código
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
@@ -243,8 +305,7 @@ class ProductSearchEngine:
         
         return filtered_products
     
-    def apply_range_filters(self, products: List[Dict], precomax: Optional[str], 
-                          estoquemin: Optional[str]) -> List[Dict]:
+    def apply_range_filters(self, products: List[Dict], precomax: Optional[str]) -> List[Dict]:
         """Aplica filtros de faixa"""
         filtered_products = list(products)
         
@@ -256,18 +317,6 @@ class ProductSearchEngine:
                     p for p in filtered_products
                     if self.convert_price(p.get("preco")) is not None and
                     self.convert_price(p.get("preco")) <= max_price
-                ]
-            except ValueError:
-                pass
-        
-        # Filtro de estoque mínimo
-        if estoquemin:
-            try:
-                min_stock = float(estoquemin)
-                filtered_products = [
-                    p for p in filtered_products
-                    if self.convert_stock(p.get("estoque")) is not None and
-                    self.convert_stock(p.get("estoque")) >= min_stock
                 ]
             except ValueError:
                 pass
@@ -292,18 +341,17 @@ class ProductSearchEngine:
         return sorted(products, key=lambda p: self.convert_price(p.get("preco")) or 0)
     
     def search_with_fallback(self, products: List[Dict], filters: Dict[str, str],
-                            precomax: Optional[str], estoquemin: Optional[str], 
-                            excluded_ids: set) -> SearchResult:
+                            precomax: Optional[str], excluded_ids: set) -> SearchResult:
         """Executa busca com fallback progressivo seguindo FALLBACK_PRIORITY"""
         
         # Primeira tentativa: busca normal
         filtered_products = self.apply_filters(products, filters)
-        filtered_products = self.apply_range_filters(filtered_products, precomax, estoquemin)
+        filtered_products = self.apply_range_filters(filtered_products, precomax)
         
         if excluded_ids:
             filtered_products = [
                 p for p in filtered_products
-                if str(p.get("id")) not in excluded_ids
+                if str(p.get("codigo")) not in excluded_ids
             ]
         
         if filtered_products:
@@ -319,7 +367,6 @@ class ProductSearchEngine:
         current_filters = dict(filters)
         removed_filters = []
         current_precomax = precomax
-        current_estoquemin = estoquemin
         
         for filter_to_remove in FALLBACK_PRIORITY:
             if filter_to_remove in current_filters:
@@ -331,12 +378,12 @@ class ProductSearchEngine:
             
             # Testa busca após remoção
             filtered_products = self.apply_filters(products, current_filters)
-            filtered_products = self.apply_range_filters(filtered_products, current_precomax, current_estoquemin)
+            filtered_products = self.apply_range_filters(filtered_products, current_precomax)
             
             if excluded_ids:
                 filtered_products = [
                     p for p in filtered_products
-                    if str(p.get("id")) not in excluded_ids
+                    if str(p.get("codigo")) not in excluded_ids
                 ]
             
             if filtered_products:
@@ -464,12 +511,11 @@ def get_data(request: Request):
     
     # Parâmetros especiais
     precomax = search_engine.get_max_value_from_range_param(query_params.pop("PrecoMax", None))
-    estoquemin = query_params.pop("EstoqueMin", None)
     simples = query_params.pop("simples", None)
     excluir = query_params.pop("excluir", None)
     
-    # Parâmetro especial para busca por ID
-    id_param = query_params.pop("id", None)
+    # Parâmetro especial para busca por código
+    codigo_param = query_params.pop("codigo", None)
     
     # Filtros principais
     filters = {
@@ -477,19 +523,18 @@ def get_data(request: Request):
         "marca": query_params.get("marca"),
         "modelo": query_params.get("modelo"),
         "categorias": query_params.get("categorias"),
-        "observacao": query_params.get("observacao"),
-        "gtin": query_params.get("gtin"),
-        "codigo": query_params.get("codigo")
+        "complemento": query_params.get("complemento"),
+        "observacao": query_params.get("observacao")
     }
     
     # Remove filtros vazios
     filters = {k: v for k, v in filters.items() if v}
     
-    # BUSCA POR ID ESPECÍFICO
-    if id_param:
+    # BUSCA POR CÓDIGO ESPECÍFICO
+    if codigo_param:
         product_found = None
         for product in products:
-            if str(product.get("id")) == str(id_param):
+            if str(product.get("codigo")) == str(codigo_param):
                 product_found = product
                 break
         
@@ -505,19 +550,19 @@ def get_data(request: Request):
             return JSONResponse(content={
                 "resultados": [product_found],
                 "total_encontrado": 1,
-                "info": f"Produto encontrado por ID: {id_param}"
+                "info": f"Produto encontrado por código: {codigo_param}"
             })
         else:
             return JSONResponse(content={
                 "resultados": [],
                 "total_encontrado": 0,
-                "error": f"Produto com ID {id_param} não encontrado"
+                "error": f"Produto com código {codigo_param} não encontrado"
             })
     
     # Verifica se há filtros de busca reais
-    has_search_filters = bool(filters) or precomax or estoquemin
+    has_search_filters = bool(filters) or precomax
     
-    # Processa IDs a excluir
+    # Processa códigos a excluir
     excluded_ids = set()
     if excluir:
         excluded_ids = set(e.strip() for e in excluir.split(",") if e.strip())
@@ -526,11 +571,11 @@ def get_data(request: Request):
     if not has_search_filters:
         all_products = list(products)
         
-        # Remove IDs excluídos se especificado
+        # Remove códigos excluídos se especificado
         if excluded_ids:
             all_products = [
                 p for p in all_products
-                if str(p.get("id")) not in excluded_ids
+                if str(p.get("codigo")) not in excluded_ids
             ]
         
         # Ordena por preço crescente (padrão)
@@ -553,7 +598,7 @@ def get_data(request: Request):
     
     # Executa a busca com fallback
     result = search_engine.search_with_fallback(
-        products, filters, precomax, estoquemin, excluded_ids
+        products, filters, precomax, excluded_ids
     )
     
     # Aplica modo simples se solicitado
