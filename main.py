@@ -40,10 +40,10 @@ class ProductSearchEngine:
         self.exact_fields = ["codigo"]
         # Thresholds mais baixos para campos principais (mais flexível)
         self.fuzzy_thresholds = {
-            "nome": 75,        # Muito flexível para nomes
-            "marca": 80,       # Flexível para marcas
-            "categorias": 85,  # Razoavelmente flexível para categorias
-            "default": 85      # Padrão para outros campos
+            "nome": 96,        # Muito flexível para nomes
+            "marca": 96,       # Flexível para marcas
+            "categorias": 96,  # Razoavelmente flexível para categorias
+            "default": 96      # Padrão para outros campos
         }
         
     def normalize_text(self, text: str) -> str:
