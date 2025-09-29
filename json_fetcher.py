@@ -10,6 +10,20 @@ from abc import ABC, abstractmethod
 
 JSON_FILE = "produtos.json"
 
+# Mapeamento de categorias
+MAPEAMENTO_CATEGORIAS = {
+    "66": "confeitaria",
+    "71": "higiene e limpeza",
+    "64": "bomboniere",
+    "69": "condimentos",
+    "65": "recheios e bisnagas",
+    "67": "embalagens",
+    "73": "alimentício",
+    "75": "escritório",
+    "68": "condimentos molhos",
+    "76": "artigos para festas"
+}
+
 # =================== UTILS =======================
 
 def converter_preco(valor: Any) -> float:
@@ -62,6 +76,48 @@ def normalize_images(imagens_data: Any) -> List[str]:
             normalized.append(clean_url)
     
     return normalized
+
+def parse_categorias(categorias_str: Any) -> str:
+    """
+    Converte códigos de categorias para nomes legíveis.
+    Entrada: "[\"68\"]" ou "[\"68\", \"73\"]" ou "68"
+    Saída: "condimentos molhos" ou "condimentos molhos, alimentício"
+    """
+    if not categorias_str:
+        return ""
+    
+    try:
+        # Se já é uma string JSON, faz parse
+        if isinstance(categorias_str, str):
+            # Remove aspas extras e espaços
+            categorias_str = categorias_str.strip()
+            
+            # Tenta fazer parse do JSON
+            if categorias_str.startswith('['):
+                codigos = json.loads(categorias_str)
+            else:
+                # Se for um código simples tipo "68"
+                codigos = [categorias_str]
+        elif isinstance(categorias_str, list):
+            codigos = categorias_str
+        else:
+            codigos = [str(categorias_str)]
+        
+        # Traduz os códigos para nomes
+        nomes = []
+        for codigo in codigos:
+            codigo_limpo = str(codigo).strip().strip('"')
+            if codigo_limpo in MAPEAMENTO_CATEGORIAS:
+                nomes.append(MAPEAMENTO_CATEGORIAS[codigo_limpo])
+            else:
+                # Se não encontrar, mantém o código original
+                nomes.append(f"categoria_{codigo_limpo}")
+        
+        return ", ".join(nomes) if nomes else ""
+        
+    except Exception as e:
+        print(f"[AVISO] Erro ao processar categoria '{categorias_str}': {e}")
+        return ""
 
 # =================== PARSERS =======================
 
@@ -139,7 +195,7 @@ class ZettaBrasilParser(BaseParser):
                 "altura": float(item.get("altura", 0.0)),
                 "largura": float(item.get("largura", 0.0)),
                 "comprimento": float(item.get("comprimento", 0.0)),
-                "categorias": item.get("categorias"),
+                "categorias": parse_categorias(item.get("categorias")),
                 "observacao": item.get("observacao", ""),
                 "imagens": item.get("imagens", [])
             })
@@ -235,6 +291,7 @@ class UnifiedProductFetcher:
             "com_imagem": sum(1 for p in products if p.get("imagens")),
             "sem_preco": sum(1 for p in products if p.get("preco", 0) <= 0),
             "top_marcas": {},
+            "top_categorias": {},
             "faixa_preco": {
                 "ate_10": 0,
                 "10_50": 0,
@@ -245,9 +302,18 @@ class UnifiedProductFetcher:
         
         for product in products:
             # Top marcas
-            marca = product.get("marca", "Sem marca")
+            marca = product.get("marca", "").strip()
             if marca:  # Só conta se tiver marca
                 stats["top_marcas"][marca] = stats["top_marcas"].get(marca, 0) + 1
+            
+            # Top categorias
+            categorias = product.get("categorias", "").strip()
+            if categorias:
+                # Se tiver múltiplas categorias separadas por vírgula
+                for cat in categorias.split(","):
+                    cat = cat.strip()
+                    if cat:
+                        stats["top_categorias"][cat] = stats["top_categorias"].get(cat, 0) + 1
             
             # Faixa de preço
             preco = product.get("preco", 0)
@@ -275,6 +341,11 @@ class UnifiedProductFetcher:
             print(f"\nTop 5 Marcas:")
             for marca, count in sorted(stats["top_marcas"].items(), key=lambda x: x[1], reverse=True)[:5]:
                 print(f"  • {marca}: {count}")
+        
+        if stats["top_categorias"]:
+            print(f"\nTop 5 Categorias:")
+            for cat, count in sorted(stats["top_categorias"].items(), key=lambda x: x[1], reverse=True)[:5]:
+                print(f"  • {cat}: {count}")
         
         print(f"\nDistribuição por Faixa de Preço:")
         print(f"  • Até R$ 10: {stats['faixa_preco']['ate_10']}")
@@ -305,6 +376,7 @@ if __name__ == "__main__":
             print(f"\nExemplo dos primeiros 3 produtos:")
             for i, p in enumerate(result['produtos'][:3], 1):
                 preco = p.get('preco', 0.0)
-                print(f"{i}. {p.get('nome', 'N/A')} - {p.get('marca', 'N/A')} - R$ {preco:.2f}")
+                cat = p.get('categorias', 'N/A')
+                print(f"{i}. {p.get('nome', 'N/A')} - {p.get('marca', 'N/A')} - R$ {preco:.2f} - [{cat}]")
                 if p.get('imagens'):
                     print(f"   Imagem: {p['imagens'][0]}")
