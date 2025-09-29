@@ -631,12 +631,14 @@ def get_data(request: Request):
 
 @app.get("/list")
 def list_products():
-    """Endpoint que retorna lista em formato CSV simples: codigo,nome"""
+    """Endpoint que retorna lista de produtos agrupados por categoria em formato compacto"""
     
     # Verifica se o arquivo de dados existe
     if not os.path.exists("produtos.json"):
-        return PlainTextResponse(
-            content="error: Nenhum dado disponível",
+        return JSONResponse(
+            content={
+                "error": "Nenhum dado disponível"
+            },
             status_code=404
         )
     
@@ -647,25 +649,48 @@ def list_products():
         
         products = data.get("produtos", [])
         if not isinstance(products, list):
-            return PlainTextResponse(
-                content="error: Formato inválido",
+            return JSONResponse(
+                content={
+                    "error": "Formato inválido"
+                },
                 status_code=500
             )
         
-        # Gera formato CSV simples: codigo,nome
-        lines = []
+        # Agrupa produtos por categoria em formato compacto
+        categorias_dict = {}
+        
         for p in products:
-            codigo = p.get("codigo", "")
-            nome = p.get("nome", "")
-            lines.append(f"{codigo},{nome}")
+            categorias_str = p.get("categorias", "sem categoria")
+            
+            # Monta linha CSV: codigo,nome
+            linha = f"{p.get('codigo', '')},{p.get('nome', '')}"
+            
+            # Se produto tem múltiplas categorias (separadas por vírgula)
+            if categorias_str:
+                cats = [cat.strip() for cat in str(categorias_str).split(",")]
+            else:
+                cats = ["sem categoria"]
+            
+            # Adiciona o produto em cada categoria que ele pertence
+            for cat in cats:
+                if not cat:
+                    cat = "sem categoria"
+                    
+                if cat not in categorias_dict:
+                    categorias_dict[cat] = []
+                
+                categorias_dict[cat].append(linha)
         
-        csv_content = "\n".join(lines)
+        # Ordena as categorias alfabeticamente
+        categorias_ordenadas = dict(sorted(categorias_dict.items()))
         
-        return PlainTextResponse(content=csv_content)
+        return JSONResponse(content=categorias_ordenadas)
             
     except Exception as e:
-        return PlainTextResponse(
-            content=f"error: {str(e)}",
+        return JSONResponse(
+            content={
+                "error": f"Erro ao processar dados: {str(e)}"
+            },
             status_code=500
         )
 
