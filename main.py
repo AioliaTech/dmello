@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from unidecode import unidecode
 from rapidfuzz import fuzz
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -40,10 +40,10 @@ class ProductSearchEngine:
         self.exact_fields = ["codigo"]
         # Thresholds mais baixos para campos principais (mais flexível)
         self.fuzzy_thresholds = {
-            "nome": 96,        # Muito flexível para nomes
-            "marca": 96,       # Flexível para marcas
-            "categorias": 96,  # Razoavelmente flexível para categorias
-            "default": 96      # Padrão para outros campos
+            "nome": 75,        # Muito flexível para nomes
+            "marca": 80,       # Flexível para marcas
+            "categorias": 85,  # Razoavelmente flexível para categorias
+            "default": 85      # Padrão para outros campos
         }
         
     def normalize_text(self, text: str) -> str:
@@ -628,6 +628,46 @@ def get_data(request: Request):
         )
     
     return JSONResponse(content=response_data)
+
+@app.get("/list")
+def list_products():
+    """Endpoint que retorna lista em formato CSV simples: codigo,nome"""
+    
+    # Verifica se o arquivo de dados existe
+    if not os.path.exists("produtos.json"):
+        return PlainTextResponse(
+            content="error: Nenhum dado disponível",
+            status_code=404
+        )
+    
+    # Carrega os dados
+    try:
+        with open("produtos.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        products = data.get("produtos", [])
+        if not isinstance(products, list):
+            return PlainTextResponse(
+                content="error: Formato inválido",
+                status_code=500
+            )
+        
+        # Gera formato CSV simples: codigo,nome
+        lines = []
+        for p in products:
+            codigo = p.get("codigo", "")
+            nome = p.get("nome", "")
+            lines.append(f"{codigo},{nome}")
+        
+        csv_content = "\n".join(lines)
+        
+        return PlainTextResponse(content=csv_content)
+            
+    except Exception as e:
+        return PlainTextResponse(
+            content=f"error: {str(e)}",
+            status_code=500
+        )
 
 @app.get("/api/health")
 def health_check():
